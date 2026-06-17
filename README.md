@@ -3,7 +3,7 @@
 <p align="center">I design, build and ship production SaaS — solo, end to end — with applied AI.</p>
 
 <p align="center">
-  <a href="https://www.linkedin.com/in/Dadadu99Tunisia/"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin&logoColor=white&style=for-the-badge" alt="LinkedIn"/></a>
+  <a href="https://www.linkedin.com/in/aichachennaoui/"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin&logoColor=white&style=for-the-badge" alt="LinkedIn"/></a>
   <a href="https://spectrumforus.com"><img src="https://img.shields.io/badge/Portfolio-spectrumforus.com-111827?style=for-the-badge" alt="Portfolio"/></a>
   <a href="mailto:hedibenazouz@gmail.com"><img src="https://img.shields.io/badge/Email-Get_in_touch-EA4335?logo=gmail&logoColor=white&style=for-the-badge" alt="Email"/></a>
 </p>
