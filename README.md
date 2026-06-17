@@ -30,6 +30,7 @@ Also known as **Dada Azouz**.
 | **[Spectrum for Us](https://github.com/Dadadu99Tunisia/Spectrum-for-us)** 🌈<br/>[`spectrumforus.com`](https://spectrumforus.com) | Production e-commerce marketplace by & for the LGBTQIA+ community | Next.js 16 · React 19 · TS · Supabase · Stripe · Sendcloud | ~36k LOC · 245 commits · Stripe transfer groups + webhooks · shipping labels · FR/EN/AR · PWA |
 | **[Subsidia](https://github.com/Dadadu99Tunisia/subsidia)** 💸 | Global funding-discovery platform — grants, subsidies & tenders across 120+ countries | Next.js 16 · React 19 · TS · Supabase | Aggregates EU / World Bank / IATI APIs + scraper · 6-axis search · admin panel |
 | **[Spectrum Growth AI](https://github.com/Dadadu99Tunisia/spectrum-growth-ai)** 🤖 | Human-in-the-loop multi-agent pipeline that scores leads & drafts outreach with LLMs | TypeScript · OpenAI · Supabase | Orchestrated agents · LLM scoring (1–5) · cost-gated · drafts only, no auto-send |
+| **[GlobalRoute AI](https://github.com/Dadadu99Tunisia/global-route-ai-dashboard)** 🛰 | Logistics orchestration dashboard — geopolitical risk, route economics & decision simulation *(interactive proof-of-concept)* | Next.js · TS · shadcn/ui · Recharts | Bento-grid · 8 modules · multi-axis data-viz · route profit simulation |
 
 ---
 
