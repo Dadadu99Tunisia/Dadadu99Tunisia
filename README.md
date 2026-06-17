@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://www.linkedin.com/in/aichachennaoui/"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin&logoColor=white&style=for-the-badge" alt="LinkedIn"/></a>
   <a href="https://spectrumforus.com"><img src="https://img.shields.io/badge/Spectrum_for_Us-spectrumforus.com-7C3AED?style=for-the-badge" alt="Spectrum for Us"/></a>
-  <a href="mailto:hedibenazouz@gmail.com"><img src="https://img.shields.io/badge/Email-Get_in_touch-EA4335?logo=gmail&logoColor=white&style=for-the-badge" alt="Email"/></a>
+  <a href="mailto:chennaoui.aicha@gmail.com"><img src="https://img.shields.io/badge/Email-Get_in_touch-EA4335?logo=gmail&logoColor=white&style=for-the-badge" alt="Email"/></a>
 </p>
 
 ---
