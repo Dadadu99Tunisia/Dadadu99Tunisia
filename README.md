@@ -16,7 +16,7 @@ I turn ideas into shipped products — pairing 10+ years of communication & soci
 
 - 🚀 **Founder & CEO — [Spectrum for Us](https://spectrumforus.com)** — an inclusive marketplace by & for the queer community.
 - 🧩 **Builder, AI-augmented** — I ship real products (Next.js · Supabase · Stripe) with AI-assisted development (Cursor, v0, Claude).
-- 📣 **Communication & impact** — 10+ years in brand, press & digital strategy (SOS Racisme, festivals, NGOs).
+- 📣 **Communication & impact** — 10+ years in brand, press & digital strategy (Festivals, NGOs).
 - 🌍 **Mission-driven** — human rights, inclusion, and technology for good.
 - 🗣 **Trilingual** — French · English · Arabic.
 
