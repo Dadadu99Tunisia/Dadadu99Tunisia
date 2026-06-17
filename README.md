@@ -1,6 +1,6 @@
 <h1 align="center">Aïcha Chennaoui</h1>
-<p align="center"><b>Founder & AI Product Builder</b></p>
-<p align="center">Communication & social-impact strategist turned founder — I ship AI-powered products, end to end.</p>
+<p align="center"><b>AI Product Manager · Founder & Builder</b></p>
+<p align="center">I lead and build AI-powered products end to end — from product vision to shipped code.</p>
 
 <p align="center">
   <a href="https://www.linkedin.com/in/aichachennaoui/"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin&logoColor=white&style=for-the-badge" alt="LinkedIn"/></a>
@@ -66,4 +66,4 @@ Also known as **Dada Azouz**.
 
 ---
 
-<p align="center"><i>Open to founder, product & AI-builder opportunities — let's build something with impact.</i></p>
+<p align="center"><i>Open to AI Product Manager & product roles — let's build something with impact.</i></p>
