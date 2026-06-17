@@ -29,7 +29,7 @@ Also known as **Dada Azouz**.
 | Project | What it is | Built with | Highlights |
 |---|---|---|---|
 | **[Spectrum for Us](https://github.com/Dadadu99Tunisia/Spectrum-for-us)** 🌈<br/>[`spectrumforus.com`](https://spectrumforus.com) | Inclusive e-commerce marketplace by & for the queer community | Next.js · React · TS · Supabase · Stripe · Sendcloud | Stripe payments + payouts · shipping · FR/EN/AR · PWA · admin back-office |
-| **[Subsidia](https://github.com/Dadadu99Tunisia/subsidia)** 💸 | Global funding-discovery platform — grants, subsidies & tenders across 120+ countries | Next.js · React · TS · Supabase | Aggregates EU / World Bank / IATI APIs · multi-axis search · admin panel |
+| **[Subsidia](https://github.com/Dadadu99Tunisia/subsidia)** 💸<br/>[`live demo`](https://subsidia-seven.vercel.app) | Global funding-discovery platform — grants, subsidies & tenders across 120+ countries | Next.js · React · TS · Supabase | Aggregates EU / World Bank / IATI APIs · multi-axis search · admin panel |
 | **[Spectrum Growth AI](https://github.com/Dadadu99Tunisia/spectrum-growth-ai)** 🤖 | Human-in-the-loop multi-agent pipeline that scores leads & drafts outreach with LLMs | TypeScript · OpenAI · Supabase | Orchestrated agents · LLM scoring (1–5) · drafts only, no auto-send |
 | **[GlobalRoute AI](https://github.com/Dadadu99Tunisia/global-route-ai-dashboard)** 🛰 | Logistics-orchestration dashboard — geopolitical risk, route economics & decision simulation *(interactive proof-of-concept)* | Next.js · TS · shadcn/ui · Recharts | Bento-grid · 8 modules · multi-axis data-viz · route profit simulation |
 
