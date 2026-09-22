@@ -320,6 +320,11 @@ export function Dashboard({
         <button className="btn" onClick={onExpense}>+ Nouvelle depense</button>
         <button className="btn primary" onClick={onIncome}>+ Revenu</button>
       </div>
+      {state.accounts.length > 1 && (
+        <button className="btn ghost block" onClick={() => go('comptes')}>
+          Faire un virement entre mes comptes
+        </button>
+      )}
 
       {overdue.length > 0 && (
         <Callout tone="critical" icon="&#9888;&#65039;" title={`${overdue.length} obligation(s) en retard`}>

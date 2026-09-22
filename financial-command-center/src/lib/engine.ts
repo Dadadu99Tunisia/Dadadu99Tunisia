@@ -56,17 +56,43 @@ function accountOf(s: AppState, accountId?: string): Account | undefined {
 export function accountBalance(s: AppState, accountId: string, ref: ISODate = todayISO()): number {
   const account = s.accounts.find((a) => a.id === accountId)
   if (!account) return 0
+  const inWindow = (d: ISODate) => d >= account.openingBalanceDate && d <= ref
+
   let total = account.openingBalance
   for (const i of s.incomes) {
     if (i.status !== 'encaisse') continue
     if (accountOf(s, i.accountId)?.id !== accountId) continue
-    if (i.date >= account.openingBalanceDate && i.date <= ref) total += i.amount
+    if (inWindow(i.date)) total += i.amount
   }
   for (const t of s.transactions) {
-    if (accountOf(s, t.accountId)?.id !== accountId) continue
-    if (t.date >= account.openingBalanceDate && t.date <= ref) total += txCashEffect(t)
+    if (!inWindow(t.date)) continue
+    const from = accountOf(s, t.accountId)?.id
+    // Un virement sort d'un compte et entre dans l'autre : il touche deux
+    // soldes, et ne coute rien au total tant qu'il reste entre tes comptes.
+    if (t.kind === 'virement') {
+      if (from === accountId) total -= Math.abs(t.amount)
+      if (t.toAccountId === accountId) total += Math.abs(t.amount)
+      continue
+    }
+    if (from !== accountId) continue
+    total += txCashEffect(t)
   }
   return round2(total)
+}
+
+/**
+ * Ce qui, sur un compte, est deja promis a quelqu'un d'autre.
+ * Un compte pro affiche un solde confortable dont une bonne part est de
+ * l'URSSAF a venir : ce chiffre-la evite de s'y tromper.
+ */
+export function reservedOnAccount(s: AppState, accountId: string, ref: ISODate = todayISO()): number {
+  const obligations = obligationsDueWithin(s, 30, ref)
+    .filter((o) => accountOf(s, o.accountId)?.id === accountId)
+    .reduce((a, o) => a + o.amount, 0)
+  const debts = activeDebts(s)
+    .filter((d) => accountOf(s, d.accountId)?.id === accountId)
+    .reduce((a, d) => a + Math.min(d.remainingAmount, d.monthlyPayment), 0)
+  return round2(obligations + debts)
 }
 
 export interface AccountBalance {
@@ -75,16 +101,23 @@ export interface AccountBalance {
   /** Sous le decouvert autorise : la banque facture des incidents. */
   breached: boolean
   negative: boolean
+  /** Deja engage sur ce compte dans les 30 prochains jours. */
+  reserved: number
+  /** Solde moins ce qui est deja engage. */
+  free: number
 }
 
 export function accountBalances(s: AppState, ref: ISODate = todayISO()): AccountBalance[] {
   return s.accounts.map((account) => {
     const balance = accountBalance(s, account.id, ref)
+    const reserved = reservedOnAccount(s, account.id, ref)
     return {
       account,
       balance,
       negative: balance < 0,
       breached: balance < -account.overdraftLimit,
+      reserved,
+      free: round2(balance - reserved),
     }
   })
 }
@@ -97,7 +130,7 @@ export function bankBalance(s: AppState, ref: ISODate = todayISO()): number {
   if (s.accounts.length === 0) return 0
   return round2(
     accountBalances(s, ref)
-      .filter((a) => !a.account.shared)
+      .filter((a) => a.account.kind !== 'joint')
       .reduce((total, a) => total + a.balance, 0),
   )
 }

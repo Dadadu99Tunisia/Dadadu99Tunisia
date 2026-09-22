@@ -23,12 +23,12 @@ export function demoState(): AppState {
       {
         id: courant, name: 'Banque principale', emoji: '\u{1F3E6}',
         openingBalance: 2600, openingBalanceDate: som,
-        overdraftLimit: 0, shared: false, primary: true,
+        kind: 'perso', overdraftLimit: 0, primary: true,
       },
       {
         id: secondaire, name: 'Second compte', emoji: '\u{1F4B3}',
         openingBalance: -180, openingBalanceDate: som,
-        overdraftLimit: 300, shared: false,
+        kind: 'perso', overdraftLimit: 300,
       },
     ],
     settings: {

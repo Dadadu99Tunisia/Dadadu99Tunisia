@@ -24,6 +24,7 @@ export function defaultAccount(balance = 0, date = today()): Account {
     id: uid(),
     name: 'Compte courant',
     emoji: '\u{1F3E6}',
+    kind: 'perso',
     openingBalance: balance,
     openingBalanceDate: date,
     overdraftLimit: 0,
@@ -113,7 +114,9 @@ export function normalise(raw: unknown): AppState {
   for (const a of state.accounts) {
     a.openingBalance = Number(a.openingBalance) || 0
     a.overdraftLimit = Math.abs(Number(a.overdraftLimit) || 0)
-    a.shared = !!a.shared
+    // Les exports anterieurs ne connaissaient qu'un booleen "partage".
+    if (!a.kind) a.kind = a.shared ? 'joint' : 'perso'
+    delete a.shared
   }
   // Exactement un compte principal, toujours.
   if (!state.accounts.some((a) => a.primary)) state.accounts[0].primary = true

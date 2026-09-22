@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { AppState, Deadline, Debt, Income, Obligation, Provision, Transaction } from '../types'
-import { emptyState, uid } from './storage'
+import { emptyState, importJSON, uid } from './storage'
 import {
   availability, analyseExpense, bankBalance, behaviourComparison, crisisState,
   debtTotal, expectedMonthlyIncome, healthReport, incomeCascade, livingSnapshot, monthlyCascade, obligationOccurrences,
@@ -1175,9 +1175,9 @@ describe('plusieurs comptes bancaires', () => {
     const s = base()
     s.accounts = [
       { id: 'cm', name: 'Credit Mutuel', emoji: '\u{1F3E6}', openingBalance: 2000,
-        openingBalanceDate: SOM, overdraftLimit: 0, shared: false, primary: true },
+        openingBalanceDate: SOM, kind: 'perso', overdraftLimit: 0, primary: true },
       { id: 'ca', name: 'Credit Agricole', emoji: '\u{1F4B3}', openingBalance: -500,
-        openingBalanceDate: SOM, overdraftLimit: 300, shared: false },
+        openingBalanceDate: SOM, kind: 'perso', overdraftLimit: 300 },
     ]
     return s
   }
@@ -1224,7 +1224,7 @@ describe('plusieurs comptes bancaires', () => {
     const s = twoAccounts()
     s.accounts.push({
       id: 'commun', name: 'Compte commun', emoji: '\u{1F465}', openingBalance: 900,
-      openingBalanceDate: SOM, overdraftLimit: 0, shared: true,
+      openingBalanceDate: SOM, kind: 'joint', overdraftLimit: 0,
     })
     expect(bankBalance(s, REF)).toBe(1500) // le joint n'entre pas
     expect(accountBalance(s, 'commun', REF)).toBe(900)
@@ -1257,5 +1257,82 @@ describe('plusieurs comptes bancaires', () => {
     s.transactions = [tx({ amount: 200 })]
     expect(bankBalance(s, REF)).toBe(1000)
     expect(accountsInTrouble(s, REF)).toHaveLength(0)
+  })
+})
+
+describe('compte pro et virements internes', () => {
+  function setup(): AppState {
+    const s = base()
+    s.accounts = [
+      { id: 'indy', name: 'Indy', emoji: '\u{1F4BC}', kind: 'pro', openingBalance: 5000,
+        openingBalanceDate: SOM, overdraftLimit: 0 },
+      { id: 'cm', name: 'Credit Mutuel', emoji: '\u{1F3E6}', kind: 'perso', openingBalance: 800,
+        openingBalanceDate: SOM, overdraftLimit: 0, primary: true },
+      { id: 'commun', name: 'Compte commun', emoji: '\u{1F465}', kind: 'joint', openingBalance: 400,
+        openingBalanceDate: SOM, overdraftLimit: 0 },
+    ]
+    return s
+  }
+
+  function virement(from: string, to: string, amount: number, date = REF) {
+    return tx({ amount, kind: 'virement', category: 'autre', accountId: from, toAccountId: to, date })
+  }
+
+  it('compte le solde pro dans le total personnel', () => {
+    expect(bankBalance(setup(), REF)).toBe(5800) // le joint reste dehors
+  })
+
+  it('deplace l’argent sans rien coûter au total', () => {
+    const s = setup()
+    s.transactions = [virement('indy', 'cm', 3000)]
+    expect(accountBalance(s, 'indy', REF)).toBe(2000)
+    expect(accountBalance(s, 'cm', REF)).toBe(3800)
+    expect(bankBalance(s, REF)).toBe(5800) // inchange
+  })
+
+  it('un virement vers le compte joint sort bien de ton argent', () => {
+    const s = setup()
+    s.transactions = [virement('cm', 'commun', 500)]
+    expect(accountBalance(s, 'cm', REF)).toBe(300)
+    expect(accountBalance(s, 'commun', REF)).toBe(900)
+    expect(bankBalance(s, REF)).toBe(5300) // 5800 - 500
+  })
+
+  it('n’entame jamais l’enveloppe de vie', () => {
+    const s = setup()
+    s.transactions = [virement('indy', 'cm', 3000), tx({ amount: 120 })]
+    expect(livingSnapshot(s, REF).spent).toBe(120)
+  })
+
+  it('montre ce qui est deja du sur le compte pro', () => {
+    const s = setup()
+    s.obligations = [
+      obligation({ name: 'URSSAF', amount: 650, dueDate: addDays(REF, 8), accountId: 'indy' }),
+      obligation({ name: 'Loyer', amount: 694.9, dueDate: addDays(REF, 8), accountId: 'cm' }),
+    ]
+    const indy = accountBalances(s, REF).find((a) => a.account.id === 'indy')!
+    expect(indy.balance).toBe(5000)
+    expect(indy.reserved).toBe(650)
+    expect(indy.free).toBe(4350)
+  })
+
+  it('rattache aussi les mensualites de dettes au bon compte', () => {
+    const s = setup()
+    s.debts = [debt({ remainingAmount: 6000, monthlyPayment: 145, accountId: 'cm' })]
+    const cm = accountBalances(s, REF).find((a) => a.account.id === 'cm')!
+    expect(cm.reserved).toBe(145)
+  })
+
+  it('lit un ancien export ou le compte joint etait un booleen', () => {
+    const raw = JSON.stringify({
+      accounts: [
+        { id: 'a', name: 'Perso', emoji: 'x', openingBalance: 100, openingBalanceDate: SOM, overdraftLimit: 0, shared: false, primary: true },
+        { id: 'b', name: 'Joint', emoji: 'y', openingBalance: 900, openingBalanceDate: SOM, overdraftLimit: 0, shared: true },
+      ],
+    })
+    const migrated = importJSON(raw)
+    expect(migrated.accounts[0].kind).toBe('perso')
+    expect(migrated.accounts[1].kind).toBe('joint')
+    expect(bankBalance(migrated, REF)).toBe(100)
   })
 })

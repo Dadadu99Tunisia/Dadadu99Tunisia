@@ -14,7 +14,7 @@ import { ImportModal } from '../modals/ImportModal'
 
 const KIND_ICON: Record<string, string> = {
   vie: '\u{1F6D2}', obligation: '\u{1F4C5}', dette: '\u{1F4C9}',
-  epargne: '\u{1F6DF}', ajustement: '\u{1F501}',
+  epargne: '\u{1F6DF}', ajustement: '\u{1F501}', virement: '\u{1F501}',
 }
 
 export function Expenses() {

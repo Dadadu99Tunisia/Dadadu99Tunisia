@@ -14,16 +14,24 @@ export type ISODate = string
  * positif peut masquer un compte a decouvert, et chaque prelevement tombe
  * sur un compte precis.
  */
+/**
+ * - 'perso' : ton argent, il compte dans ton disponible
+ * - 'pro'   : les encaissements y arrivent et les cotisations en partent
+ * - 'joint' : partage, son solde n'est pas le tien
+ */
+export type AccountKind = 'perso' | 'pro' | 'joint'
+
 export interface Account {
   id: string
   name: string
   emoji: string
+  kind: AccountKind
   openingBalance: number
   openingBalanceDate: ISODate
   /** Decouvert autorise, en valeur positive. Au-dela, c'est un incident. */
   overdraftLimit: number
-  /** Un compte joint : son solde n'est pas ton argent disponible. */
-  shared: boolean
+  /** @deprecated remplace par `kind`. Conserve pour lire les anciens exports. */
+  shared?: boolean
   /** Compte propose par defaut a la saisie. */
   primary?: boolean
   note?: string
@@ -126,8 +134,9 @@ export type TxCategory =
  * - 'dette'      : remboursement de dette, hors enveloppe de vie
  * - 'epargne'    : virement vers l'epargne, hors enveloppe de vie
  * - 'ajustement' : recalage du solde reel (montant signe)
+ * - 'virement'   : deplacement entre deux de tes comptes, neutre au total
  */
-export type TxKind = 'vie' | 'obligation' | 'dette' | 'epargne' | 'ajustement'
+export type TxKind = 'vie' | 'obligation' | 'dette' | 'epargne' | 'ajustement' | 'virement'
 
 export interface Transaction {
   id: string
@@ -146,6 +155,8 @@ export interface Transaction {
   importKey?: string
   /** Compte debite. Non renseigne : le compte principal. */
   accountId?: string
+  /** Compte credite, pour un virement interne. */
+  toAccountId?: string
 }
 
 /**

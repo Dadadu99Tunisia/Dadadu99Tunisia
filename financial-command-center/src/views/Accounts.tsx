@@ -1,25 +1,37 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../store'
-import type { Account } from '../types'
-import { accountBalances, bankBalance } from '../lib/engine'
+import type { Account, AccountKind } from '../types'
+import { accountBalance, accountBalances, bankBalance } from '../lib/engine'
 import { euro, parseAmount } from '../lib/money'
 import { longDate, today } from '../lib/dates'
 import { uid } from '../lib/storage'
 import {
-  Badge, Callout, Card, ConfirmButton, Field, Modal, Stat, Switch, useAmount,
+  Badge, Callout, Card, ConfirmButton, Field, Modal, Segmented, Stat, useAmount,
 } from '../components/ui'
 import { useToast } from '../components/Toast'
+
+const KIND_LABEL: Record<AccountKind, string> = {
+  perso: 'Personnel',
+  pro: 'Professionnel',
+  joint: 'Joint',
+}
+const KIND_HINT: Record<AccountKind, string> = {
+  perso: 'Ton argent : il entre dans ton solde disponible.',
+  pro: 'Les encaissements y arrivent, les cotisations en partent. Il compte, mais une part y est deja due.',
+  joint: 'Partage : son solde apparait mais n\u2019entre pas dans ton disponible.',
+}
 
 export function Accounts() {
   const { state, dispatch } = useStore()
   const ref = today()
   const [editing, setEditing] = useState<Account | null>(null)
   const [creating, setCreating] = useState(false)
+  const [transferring, setTransferring] = useState(false)
 
   const balances = useMemo(() => accountBalances(state, ref), [state, ref])
   const total = bankBalance(state, ref)
   const trouble = balances.filter((b) => b.negative)
-  const shared = balances.filter((b) => b.account.shared)
+  const shared = balances.filter((b) => b.account.kind === 'joint')
 
   return (
     <div className="stack">
@@ -52,10 +64,15 @@ export function Accounts() {
         </Callout>
       )}
 
-      <button className="btn primary block" onClick={() => setCreating(true)}>+ Ajouter un compte</button>
+      <div className="quick-actions">
+        {state.accounts.length > 1 && (
+          <button className="btn" onClick={() => setTransferring(true)}>Faire un virement</button>
+        )}
+        <button className="btn primary" onClick={() => setCreating(true)}>+ Ajouter un compte</button>
+      </div>
 
       <div className="stack">
-        {balances.map(({ account, balance, negative, breached }) => (
+        {balances.map(({ account, balance, negative, breached, reserved, free }) => (
           <Card key={account.id}>
             <div className="row" style={{ marginBottom: 12 }}>
               <span className="avatar" aria-hidden style={{ fontSize: 19 }}>{account.emoji}</span>
@@ -68,7 +85,9 @@ export function Accounts() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
                 {account.primary && <Badge tone="good">Principal</Badge>}
-                {account.shared && <Badge tone="epargne">Joint</Badge>}
+                {account.kind !== 'perso' && (
+                  <Badge tone={account.kind === 'pro' ? 'warn' : 'epargne'}>{KIND_LABEL[account.kind]}</Badge>
+                )}
                 {breached && <Badge tone="critical">Hors decouvert</Badge>}
               </div>
             </div>
@@ -84,6 +103,12 @@ export function Accounts() {
             >
               {euro(balance)}
             </div>
+            {reserved > 0 && (
+              <p className="fine" style={{ marginTop: 6 }}>
+                dont <b>{euro(reserved)}</b> deja engages sous 30 jours &mdash; reste{' '}
+                <b style={{ color: free < 0 ? 'var(--critical)' : 'var(--vie)' }}>{euro(free)}</b>
+              </p>
+            )}
             {account.note && <p className="fine" style={{ marginTop: 6 }}>{account.note}</p>}
 
             <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
@@ -107,6 +132,7 @@ export function Accounts() {
         dans ton argent disponible : son solde n&rsquo;est pas le tien.
       </p>
 
+      {transferring && <TransferModal onClose={() => setTransferring(false)} />}
       {creating && <AccountModal onClose={() => setCreating(false)} />}
       {editing && <AccountModal initial={editing} onClose={() => setEditing(null)} />}
     </div>
@@ -118,7 +144,7 @@ function AccountModal({ onClose, initial }: { onClose: () => void; initial?: Acc
   const { notify } = useToast()
   const [name, setName] = useState(initial?.name ?? '')
   const [emoji, setEmoji] = useState(initial?.emoji ?? '\u{1F3E6}')
-  const [shared, setShared] = useState(initial?.shared ?? false)
+  const [kind, setKind] = useState<AccountKind>(initial?.kind ?? 'perso')
   const [note, setNote] = useState(initial?.note ?? '')
   const [date, setDate] = useState(initial?.openingBalanceDate ?? today())
   const [balanceRaw, setBalanceRaw] = useState(
@@ -141,7 +167,7 @@ function AccountModal({ onClose, initial }: { onClose: () => void; initial?: Acc
         openingBalance: parsedBalance,
         openingBalanceDate: date,
         overdraftLimit: Number.isFinite(overdraft.value) ? Math.abs(overdraft.value) : 0,
-        shared,
+        kind,
         primary: initial?.primary,
         note: note.trim() || undefined,
       },
@@ -202,11 +228,18 @@ function AccountModal({ onClose, initial }: { onClose: () => void; initial?: Acc
         />
       </Field>
 
-      <Switch
-        checked={shared}
-        onChange={setShared}
-        label="Compte joint (son solde n&rsquo;est pas ton argent disponible)"
-      />
+      <Field label="Type de compte" hint={KIND_HINT[kind]}>
+        <Segmented
+          value={kind}
+          onChange={setKind}
+          ariaLabel="Type de compte"
+          options={[
+            { value: 'perso', label: 'Personnel' },
+            { value: 'pro', label: 'Professionnel' },
+            { value: 'joint', label: 'Joint' },
+          ]}
+        />
+      </Field>
 
       <Field label="Note" hint="Facultatif.">
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Compte des charges communes" />
@@ -243,5 +276,127 @@ export function AccountPicker({
         ))}
       </select>
     </Field>
+  )
+}
+
+/**
+ * Un virement entre deux de tes comptes n'est pas une depense : il deplace
+ * l'argent sans rien coûter, sauf quand il part vers un compte joint.
+ */
+export function TransferModal({ onClose }: { onClose: () => void }) {
+  const { state, dispatch } = useStore()
+  const { notify } = useToast()
+  const accounts = state.accounts
+  const primary = accounts.find((a) => a.primary) ?? accounts[0]
+
+  // Le virement le plus frequent va du compte pro vers le compte courant :
+  // c'est ce sens qui est propose par defaut.
+  const pro = accounts.find((a) => a.kind === 'pro')
+  const defaultFrom = pro ?? primary
+  const defaultTo = pro
+    ? (primary && primary.id !== pro.id ? primary : accounts.find((a) => a.kind === 'perso'))
+    : accounts.find((a) => a.id !== primary?.id)
+
+  const [from, setFrom] = useState(defaultFrom?.id)
+  const [to, setTo] = useState(defaultTo?.id)
+  const [date, setDate] = useState(today())
+  const amount = useAmount('')
+
+  const source = accounts.find((a) => a.id === from)
+  const target = accounts.find((a) => a.id === to)
+  const sameAccount = from === to
+  const leavesYourMoney = source?.kind !== 'joint' && target?.kind === 'joint'
+
+  const sourceAfter = source ? accountBalance(state, source.id, today()) - (amount.value || 0) : 0
+
+  function save() {
+    if (!amount.valid || !from || !to || sameAccount) return
+    dispatch({
+      type: 'tx/upsert',
+      tx: {
+        id: uid(), date,
+        description: `Virement ${source?.name} → ${target?.name}`,
+        category: 'autre', amount: amount.value, kind: 'virement',
+        accountId: from, toAccountId: to,
+      },
+    })
+    notify(`${euro(amount.value)} vires vers ${target?.name}.`, { tone: 'good' })
+    onClose()
+  }
+
+  return (
+    <Modal
+      title="Virement entre comptes"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn ghost" onClick={onClose}>Annuler</button>
+          <button className="btn primary" disabled={!amount.valid || sameAccount} onClick={save}>
+            Virer
+          </button>
+        </>
+      }
+    >
+      <Field label="Montant">
+        <input
+          className="num-input"
+          inputMode="decimal"
+          value={amount.raw}
+          onChange={(e) => amount.setRaw(e.target.value)}
+          placeholder="1 000"
+          autoFocus
+        />
+      </Field>
+
+      <div className="field-row">
+        <Field label="Depuis">
+          <select value={from} onChange={(e) => setFrom(e.target.value)}>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Vers">
+          <select value={to} onChange={(e) => setTo(e.target.value)}>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>)}
+          </select>
+        </Field>
+      </div>
+
+      <Field label="Date">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </Field>
+
+      {sameAccount && (
+        <Callout tone="warn" icon="&#9888;&#65039;">Choisis deux comptes differents.</Callout>
+      )}
+
+      {amount.valid && source && !sameAccount && sourceAfter < -source.overdraftLimit && (
+        <Callout tone="critical" icon="&#9888;&#65039;" title="Ce virement met le compte source hors decouvert">
+          {source.name} tomberait a {euro(sourceAfter)}, au-dela de son decouvert autorise de{' '}
+          {euro(source.overdraftLimit)}. Les frais d&rsquo;incident suivent.
+        </Callout>
+      )}
+
+      {amount.valid && source && target && !sameAccount && (
+        <div className="impact">
+          <div className="side">
+            <div className="l">{source.name}</div>
+            <div className={`v ${sourceAfter < 0 ? 'bad' : ''}`}>{euro(sourceAfter)}</div>
+          </div>
+          <div className="arrow" aria-hidden>&rarr;</div>
+          <div className="side">
+            <div className="l">{target.name}</div>
+            <div className="v ok">
+              {euro(accountBalance(state, target.id, today()) + amount.value)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <p className="fine">
+        {leavesYourMoney
+          ? "Un virement vers un compte joint sort de ton argent disponible : il n’est qu’a moitie a toi."
+          : "Un virement entre tes comptes ne change pas ton total : il ne consomme ni ton enveloppe de vie, ni ton disponible."}
+      </p>
+    </Modal>
   )
 }

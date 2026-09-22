@@ -46,7 +46,7 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 | Module | Role |
 |---|---|
 | **Tableau de bord** | Meteo du mois, faits marquants, solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade |
-| **Comptes** | Un solde par compte, decouvert autorise, comptes joints exclus du disponible |
+| **Comptes** | Un solde par compte, ce qui y est deja engage, virements internes |
 | **Budget type** | Repartition prevue de l'enveloppe de vie par categorie, comparee au reel |
 | **Echeances** | Demarches fiscales et administratives datees, avec leur enjeu chiffre |
 | **Revenus** | Prevu / facture / encaisse, revenus recurrents, repartition guidee a l'encaissement |
@@ -102,15 +102,35 @@ globale. Trois repartitions de depart evitent la page blanche.
 
 ### Plusieurs comptes bancaires
 
-Chaque compte a son solde, sa date d'ouverture et son decouvert autorise, et
-chaque mouvement se rattache a un compte (sans precision : le compte
-principal). Le solde personnel additionne les comptes qui sont a toi ; un
-compte joint apparait mais reste dehors, puisque son solde n'est pas le tien.
+Chaque compte a son solde, sa date d'ouverture, son decouvert autorise et son
+type :
 
-L'interet n'est pas cosmetique : **un total positif peut masquer un compte
-dans le rouge**, et les agios se prelevent sur le compte, pas sur le total.
-Le cockpit le dit explicitement, et le mode stabilisation se declenche sur un
-seul compte a decouvert meme quand la somme reste positive.
+- **personnel** : ton argent, il entre dans ton disponible ;
+- **professionnel** : les encaissements y arrivent et les cotisations en
+  partent — il compte, mais une part y est deja due ;
+- **joint** : son solde apparait sans entrer dans ton disponible, puisqu'il
+  n'est pas le tien.
+
+Chaque mouvement se rattache a un compte (sans precision : le compte
+principal), ce qui laisse un cockpit a compte unique fonctionner comme avant.
+
+Deux lectures que le solde global ne donne pas :
+
+- **Un total positif peut masquer un compte dans le rouge**, et les agios se
+  prelevent sur le compte, pas sur le total. Le mode stabilisation se
+  declenche sur un seul compte a decouvert meme quand la somme reste positive.
+- Chaque compte affiche **ce qui y est deja engage sous 30 jours**. Un compte
+  pro a 5 200 EUR dont 650 EUR d'URSSAF n'a pas 5 200 EUR de disponible ; un
+  compte courant a 1 450 EUR qui doit 2 885 EUR le dit avant l'incident.
+
+### Virements entre comptes
+
+Deplacer de l'argent du compte pro vers le compte courant n'est ni une
+depense ni un revenu : le virement touche deux soldes et laisse le total
+inchange, sans entamer l'enveloppe de vie. Vers un compte joint, en revanche,
+l'argent sort bien de ton disponible. Le sens propose par defaut va du compte
+pro vers le compte courant, et un virement qui mettrait le compte source hors
+de son decouvert autorise est signale avant validation.
 
 Supprimer un compte rebascule ses mouvements sur le compte principal : un
 solde n'est jamais perdu par accident.
@@ -198,7 +218,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 163 tests : moteur de calcul et import bancaire
+npm test           # 170 tests : moteur de calcul et import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de
@@ -215,7 +235,8 @@ src/
     engine.ts         tous les calculs derives — aucune logique metier ailleurs
     engine.test.ts    cas limites : mois sans revenu, depassement, dette
                       partielle, recurrences, fractionnes, projection,
-                      provisions, echeances, comptes multiples, mois clos, meteo
+                      provisions, echeances, comptes multiples, virements,
+                      mois clos, meteo
     bankImport.ts     lecture des releves CSV / OFX / QIF, categorisation,
                       detection des doublons
     bankImport.test.ts formats reels des banques francaises
