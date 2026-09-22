@@ -117,14 +117,54 @@ export function exportJSON(state: AppState): string {
   return JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2)
 }
 
-export function downloadExport(state: AppState): void {
-  const blob = new Blob([exportJSON(state)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `cockpit-financier-${today()}.fcc.json`
-  a.click()
-  URL.revokeObjectURL(url)
+export type ExportOutcome = 'saved' | 'declined' | 'impossible'
+
+/** Namespace minimal expose par la plateforme d'artefacts. */
+interface DownloadsCapability {
+  save(req: { filename: string; data: string }): Promise<{ status: string }>
+}
+interface ClaudeHost {
+  use(name: string): Promise<DownloadsCapability | null>
+}
+
+/**
+ * Propose le fichier d'export.
+ *
+ * Dans un navigateur ordinaire, un lien suffit. Publiee comme artefact, la
+ * page n'a pas le droit de declencher un telechargement elle-meme : c'est la
+ * plateforme qui le mediatise. Sans ce detour, le bouton ne ferait rien, et
+ * la sauvegarde -- le seul filet de securite de donnees locales -- serait
+ * silencieusement perdue.
+ */
+export async function downloadExport(state: AppState): Promise<ExportOutcome> {
+  const filename = `cockpit-financier-${today()}.json`
+  const content = exportJSON(state)
+
+  const host = (globalThis as { claude?: ClaudeHost }).claude
+  if (host && typeof host.use === 'function') {
+    try {
+      const downloads = await host.use('downloads')
+      if (!downloads) return 'impossible'
+      await downloads.save({ filename, data: content })
+      return 'saved'
+    } catch (e) {
+      const code = (e as { code?: string } | null)?.code
+      return code === 'declined' ? 'declined' : 'impossible'
+    }
+  }
+
+  try {
+    const blob = new Blob([content], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+    return 'saved'
+  } catch {
+    return 'impossible'
+  }
 }
 
 export function importJSON(text: string): AppState {

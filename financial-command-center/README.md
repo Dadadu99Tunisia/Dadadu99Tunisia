@@ -138,6 +138,18 @@ prochaine rentree, actions prioritaires. Les modules secondaires sont masques.
 
 ---
 
+## Publication
+
+Le build produit un bundle unique (`inlineDynamicImports`), ce qui permet de
+servir l'application comme une page autonome : un `<style>` et un
+`<script type="module">` inlines, sans fichier annexe.
+
+Sur une plateforme qui interdit a la page de declencher elle-meme un
+telechargement, l'export passe par `claude.use('downloads')` et retombe sur
+un lien classique dans un navigateur ordinaire. Sans ce detour, le bouton
+d'export serait inerte et la sauvegarde -- seul filet de securite de donnees
+locales -- perdue en silence.
+
 ## Donnees
 
 - **Tout reste dans le navigateur** (`localStorage`). Aucun serveur, aucun compte,

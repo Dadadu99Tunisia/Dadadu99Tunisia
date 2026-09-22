@@ -4,10 +4,12 @@ import { downloadExport, importJSON, emptyState } from '../lib/storage'
 import { euro, parseAmount } from '../lib/money'
 import { today } from '../lib/dates'
 import { Callout, Card, ConfirmButton, Field, Segmented, Switch } from '../components/ui'
+import { useToast } from '../components/Toast'
 import { ImportModal } from '../modals/ImportModal'
 
 export function Settings({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (t: 'light' | 'dark') => void }) {
   const { state, dispatch, reset } = useStore()
+  const { notify } = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [budget, setBudget] = useState(String(state.settings.livingBudget).replace('.', ','))
   const [buffer, setBuffer] = useState(String(state.settings.safetyBuffer).replace('.', ','))
@@ -157,7 +159,15 @@ export function Settings({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme:
         </Callout>
 
         <div className="stack" style={{ marginTop: 14, gap: 10 }}>
-          <button className="btn block" onClick={() => downloadExport(state)}>
+          <button
+            className="btn block"
+            onClick={async () => {
+              const r = await downloadExport(state)
+              if (r === 'saved') notify('Export enregistre.', { tone: 'good' })
+              else if (r === 'declined') notify('Export annule.')
+              else notify('Le telechargement est bloque ici. Ouvre la page dans un navigateur pour exporter.', { tone: 'warn' })
+            }}
+          >
             Exporter mes donnees (JSON)
           </button>
           <button className="btn block" onClick={() => fileRef.current?.click()}>

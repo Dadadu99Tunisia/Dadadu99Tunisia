@@ -16,16 +16,23 @@ import { round2 } from './money'
 /* Decodage                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Decode en UTF-8, et retombe sur Windows-1252 si le resultat est casse. */
+/**
+ * Decode en UTF-8, et retombe sur Windows-1252 si le fichier n'en est pas.
+ *
+ * Le decodeur strict leve des qu'un octet est invalide : c'est la signature
+ * d'un export latin-1, encore courant chez les banques francaises. On evite
+ * ainsi de compter des caracteres de remplacement, qu'il faudrait ecrire en
+ * dur dans le code.
+ */
 export function decodeBuffer(buf: ArrayBuffer): string {
-  const utf8 = new TextDecoder('utf-8').decode(buf)
-  // U+FFFD = octet non decodable : signature d'un fichier latin-1.
-  const broken = (utf8.match(/�/g) || []).length
-  if (broken === 0) return utf8
   try {
-    return new TextDecoder('windows-1252').decode(buf)
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf)
   } catch {
-    return utf8
+    try {
+      return new TextDecoder('windows-1252').decode(buf)
+    } catch {
+      return new TextDecoder('utf-8').decode(buf)
+    }
   }
 }
 
