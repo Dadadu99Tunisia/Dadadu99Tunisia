@@ -2235,3 +2235,59 @@ export function goalForecast(
     date: months === null ? null : addMonths(ref, months),
   }
 }
+
+export interface GoalEffort {
+  /** Mois disponibles d'ici la date visee, au moins 1. */
+  months: number
+  /** Ce qui sera mis de cote d'ici la, sans rien changer. */
+  savedWithout: number
+  /** Ce qu'il manque a cette date. */
+  shortfall: number
+  /**
+   * Revenu mensuel supplementaire, net de cotisations, qui suffirait a tenir
+   * la date. `null` si meme un revenu hors de portee n'y suffit pas.
+   */
+  extraIncome: number | null
+}
+
+/**
+ * L'inverse de `goalForecast` : je veux cette date, qu'est-ce qu'il faut ?
+ * On cherche le revenu supplementaire par dichotomie plutot qu'en divisant le
+ * manque par le nombre de mois : un mois deja negatif absorbe une partie du
+ * revenu en plus avant de rien mettre de cote, et une division l'ignorerait.
+ */
+export function goalEffort(
+  s: AppState,
+  goal: SavingsGoal,
+  target: ISODate,
+  ref: ISODate = todayISO(),
+  ceiling = 50000,
+): GoalEffort {
+  const months = Math.max(1, monthsUntil(target, ref))
+  const reach = (extra: number): boolean => {
+    const f = goalForecast(s, goal, ref, extra, months)
+    return f.months !== null && f.months <= months
+  }
+  // Ce qui rentre d'ici la sans rien changer : la plus grande cible atteignable.
+  let lo = 0
+  let hi = Math.max(goal.target, 1) * 4 + ceiling
+  for (let i = 0; i < 44; i++) {
+    const mid = (lo + hi) / 2
+    const f = goalForecast(s, { ...goal, target: mid }, ref, 0, months)
+    if (f.months !== null && f.months <= months) lo = mid
+    else hi = mid
+  }
+  const savedWithout = round2(Math.max(0, lo))
+  const shortfall = round2(Math.max(0, goal.target - savedWithout))
+
+  if (reach(0)) return { months, savedWithout, shortfall: 0, extraIncome: 0 }
+  if (!reach(ceiling)) return { months, savedWithout, shortfall, extraIncome: null }
+  let low = 0
+  let high = ceiling
+  for (let i = 0; i < 40; i++) {
+    const mid = (low + high) / 2
+    if (reach(mid)) high = mid
+    else low = mid
+  }
+  return { months, savedWithout, shortfall, extraIncome: round2(high) }
+}

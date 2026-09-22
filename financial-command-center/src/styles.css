@@ -1506,3 +1506,31 @@ select.cat-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var
   .goal-when .legs { width: 100%; }
   .goal-when .leg { flex: 1; }
 }
+
+.month-input {
+  flex: 1;
+  padding: 10px 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  outline: none;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+.month-input:focus {
+  background: var(--surface-1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.effort-line {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 15px;
+  background: var(--obligations-soft);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+.effort-line b { color: var(--text); }
+.effort-line.ok { background: var(--vie-soft); }
+.effort-line.no { background: var(--dettes-soft); }

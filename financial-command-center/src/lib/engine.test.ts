@@ -10,7 +10,7 @@ import {
   savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
   deadlineStakes, deadlinesDueWithin, openDeadlines, overdueDeadlines, yearlyImpact,
   accountBalance, accountBalances, accountsInTrouble, debtPayoff, nextDebtCleared,
-  progressReport, solutions, budgetStreak, freedMonthly, goalForecast,
+  progressReport, solutions, budgetStreak, freedMonthly, goalForecast, goalEffort,
 } from './engine'
 import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
@@ -1637,5 +1637,45 @@ describe('date d’un objectif', () => {
     s.provisions = [{ id: 'p', name: 'Taxe fonciere', emoji: '\u{1F3DB}\uFE0F', amount: 1200, dueDate: addDays(REF, 20), recurrence: 'yearly', saved: 0 }]
     const f = goalForecast(s, goal(), REF)
     expect(f.capacityNow).toBe(2900)
+  })
+})
+
+describe('date voulue pour un objectif', () => {
+  function goal(target = 12000, current = 0) {
+    return { id: 'g', name: 'Voiture', emoji: '\u{1F697}', target, current }
+  }
+
+  it('chiffre le revenu mensuel qui tiendrait la date', () => {
+    const s = base()
+    // 3 000 EUR de capacite par mois, 12 000 a trouver en 3 mois : il manque
+    // 3 000 EUR, soit 1 000 EUR de revenu en plus chaque mois.
+    const e = goalEffort(s, goal(), addMonths(REF, 3), REF)
+    expect(e.months).toBe(3)
+    expect(e.savedWithout).toBeCloseTo(9000, 0)
+    expect(e.shortfall).toBeCloseTo(3000, 0)
+    expect(e.extraIncome).toBeCloseTo(1000, 0)
+  })
+
+  it('ne demande rien quand la date tient deja', () => {
+    const s = base()
+    const e = goalEffort(s, goal(6000), addMonths(REF, 3), REF)
+    expect(e.extraIncome).toBe(0)
+    expect(e.shortfall).toBe(0)
+  })
+
+  it('tient compte d’un mois deja negatif avant de mettre de cote', () => {
+    const s = base()
+    s.obligations = [obligation({ amount: 3500, recurrence: 'monthly', dueDate: addDays(REF, 5) })]
+    const e = goalEffort(s, goal(3000), addMonths(REF, 3), REF)
+    // 500 EUR manquent chaque mois avant de pouvoir epargner quoi que ce soit :
+    // le revenu necessaire couvre le trou, puis l'objectif.
+    expect(e.savedWithout).toBe(0)
+    expect(e.extraIncome).toBeCloseTo(1500, 0)
+  })
+
+  it('dit qu’aucun revenu ne suffit quand la date est intenable', () => {
+    const s = base()
+    const e = goalEffort(s, goal(500000), addMonths(REF, 1), REF, 5000)
+    expect(e.extraIncome).toBeNull()
   })
 })

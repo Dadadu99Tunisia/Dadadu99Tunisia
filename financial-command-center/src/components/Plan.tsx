@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { GoalForecast, ProgressReport, Solution } from '../lib/engine'
+import type { GoalEffort, GoalForecast, ProgressReport, Solution } from '../lib/engine'
 import type { View } from '../Nav'
 import { Bar, Card, Empty, Segmented } from './ui'
 import { euro } from '../lib/money'
@@ -125,11 +125,15 @@ export function SolutionsCard({
  * dans un an quand des credits sont soldes, et l'effet d'un revenu en plus.
  */
 export function GoalTimingCard({
-  forecast, extra, onExtra, go,
+  forecast, extra, onExtra, wanted, onWanted, effort, go,
 }: {
   forecast: GoalForecast
   extra: number
   onExtra: (v: number) => void
+  /** Mois vise, au format 'YYYY-MM' ; vide tant qu'aucune date n'est visee. */
+  wanted: string
+  onWanted: (v: string) => void
+  effort?: GoalEffort
   go: (v: View) => void
 }) {
   const { goal, date, months, capacityNow, capacitySoon, missing, income } = forecast
@@ -184,11 +188,28 @@ export function GoalTimingCard({
         />
       </div>
 
+      <div style={{ marginTop: 14 }}>
+        <div className="section-title" style={{ marginBottom: 8 }}>Je la veux pour&hellip;</div>
+        <div className="row">
+          <input
+            className="month-input"
+            type="month"
+            value={wanted}
+            aria-label="Mois vise"
+            onChange={(e) => onWanted(e.target.value)}
+          />
+          {wanted && (
+            <button className="btn sm ghost" onClick={() => onWanted('')}>Effacer</button>
+          )}
+        </div>
+        {effort && <EffortLine effort={effort} />}
+      </div>
+
       <p className="fine" style={{ marginTop: 12 }}>
         Calcul mois par mois sur {euro(income)} de revenu mensuel : obligations, enveloppe de
         vie, mensualites de dettes et provisions lissees deduites. Chaque credit solde en cours
-        de route augmente ce qui reste. Une depense au-dela de l&rsquo;enveloppe, elle, recule
-        la date.
+        de route augmente ce qui reste. Un revenu supplementaire se compte net de cotisations,
+        et une depense au-dela de l&rsquo;enveloppe recule la date.
       </p>
     </Card>
   )
@@ -200,3 +221,31 @@ const EXTRA_OPTIONS = [
   { value: '1000', label: '+1 000 €' },
   { value: '2000', label: '+2 000 €' },
 ]
+
+/** Ce que coute une date voulue : un chiffre, pas un encouragement. */
+function EffortLine({ effort }: { effort: GoalEffort }) {
+  const { extraIncome, savedWithout, shortfall, months } = effort
+  if (extraIncome === 0) {
+    return (
+      <p className="effort-line ok">
+        Cette date tient deja : {euro(savedWithout)} seront mis de cote d&rsquo;ici la.
+      </p>
+    )
+  }
+  if (extraIncome === null) {
+    return (
+      <p className="effort-line no">
+        Meme avec un revenu hors de portee, cette date ne tient pas : les obligations et les
+        mensualites absorbent tout sur ces {months} mois.
+      </p>
+    )
+  }
+  return (
+    <p className="effort-line">
+      Il faudrait <b className="num">{euro(extraIncome)}</b> de revenu en plus chaque mois,
+      net de cotisations, pendant {months} mois. Sans rien changer, tu auras{' '}
+      <b className="num">{euro(savedWithout)}</b> a cette date : il manquerait{' '}
+      <b className="num">{euro(shortfall)}</b>.
+    </p>
+  )
+}

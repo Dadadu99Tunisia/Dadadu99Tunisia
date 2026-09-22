@@ -106,6 +106,14 @@ Un selecteur simule un revenu mensuel supplementaire (+500, +1 000, +2 000 EUR)
 et recalcule la date : c'est la reponse chiffree a « et si je signais un client
 de plus ? ».
 
+La question inverse est posee aussi : en choisissant un mois vise, le cockpit
+annonce le revenu mensuel supplementaire — net de cotisations — qui tiendrait
+cette date, ce qui sera epargne d'ici la sans rien changer, et ce qui
+manquerait. Il est cherche par dichotomie sur la meme simulation, pas en
+divisant le manque par le nombre de mois : un mois deja negatif absorbe une
+partie du revenu en plus avant de mettre quoi que ce soit de cote. Quand aucun
+revenu raisonnable ne suffit, c'est dit.
+
 ### « Puis-je me le permettre ? »
 
 Une depense n'appelle jamais une reponse oui / non. L'application affiche
@@ -283,7 +291,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 202 tests : moteur de calcul, stockage, import bancaire
+npm test           # 206 tests : moteur de calcul, stockage, import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de

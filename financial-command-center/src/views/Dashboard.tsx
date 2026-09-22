@@ -4,7 +4,7 @@ import {
   availability, crisisState, healthReport, livingSnapshot, monthlyCascade,
   obligationsDueWithin, overdueObligations, priorityActions, activeDebts, upcomingIncomes,
   insights, monthPosition, refForMonth, weather, accountBalances,
-  progressReport, solutions, goalForecast, mainSavingsGoal,
+  progressReport, solutions, goalForecast, goalEffort, mainSavingsGoal,
 } from '../lib/engine'
 import { euro, ratio } from '../lib/money'
 import { longDate, monthLabel, relativeDue, today } from '../lib/dates'
@@ -55,6 +55,12 @@ export function Dashboard({
   const forecast = useMemo(
     () => (goal ? goalForecast(state, goal, now, extra) : undefined),
     [state, goal, now, extra],
+  )
+  // Date visee : la question inverse, "qu'est-ce qu'il faudrait pour mars ?"
+  const [wanted, setWanted] = useState('')
+  const effort = useMemo(
+    () => (goal && /^\d{4}-\d{2}$/.test(wanted) ? goalEffort(state, goal, `${wanted}-01`, now) : undefined),
+    [state, goal, wanted, now],
   )
 
   const empty =
@@ -107,7 +113,10 @@ export function Dashboard({
         <ProgressCard report={progress} onDetail={() => go('dettes')} />
 
         {forecast && (
-          <GoalTimingCard forecast={forecast} extra={extra} onExtra={setExtra} go={go} />
+          <GoalTimingCard
+            forecast={forecast} extra={extra} onExtra={setExtra}
+            wanted={wanted} onWanted={setWanted} effort={effort} go={go}
+          />
         )}
 
         {overdue.length > 0 && (
@@ -221,7 +230,10 @@ export function Dashboard({
       <ProgressCard report={progress} onDetail={() => go('dettes')} />
 
       {forecast && (
-        <GoalTimingCard forecast={forecast} extra={extra} onExtra={setExtra} go={go} />
+        <GoalTimingCard
+          forecast={forecast} extra={extra} onExtra={setExtra}
+          wanted={wanted} onWanted={setWanted} effort={effort} go={go}
+        />
       )}
 
       <SolutionsCard list={levers} go={go} />
