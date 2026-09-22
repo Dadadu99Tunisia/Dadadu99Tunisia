@@ -4,6 +4,7 @@ import { downloadExport, importJSON, emptyState } from '../lib/storage'
 import { euro, parseAmount } from '../lib/money'
 import { today } from '../lib/dates'
 import { Callout, Card, ConfirmButton, Field, Segmented, Switch } from '../components/ui'
+import { ImportModal } from '../modals/ImportModal'
 
 export function Settings({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme: (t: 'light' | 'dark') => void }) {
   const { state, dispatch, reset } = useStore()
@@ -14,6 +15,7 @@ export function Settings({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme:
   const [name, setName] = useState(state.settings.ownerName)
   const [importError, setImportError] = useState('')
   const [imported, setImported] = useState(false)
+  const [bankImport, setBankImport] = useState(false)
 
   function commitNumber(raw: string, key: 'livingBudget' | 'safetyBuffer' | 'expectedMonthlyIncome') {
     const v = parseAmount(raw)
@@ -136,6 +138,17 @@ export function Settings({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme:
         </Field>
       </Card>
 
+      <Card title="Releves bancaires">
+        <p className="fine" style={{ marginBottom: 12 }}>
+          Importe un export CSV, OFX ou QIF de ta banque : les mouvements sont classes
+          automatiquement, et tu relis tout avant enregistrement. Une ligne deja importee
+          n&rsquo;est jamais ajoutee deux fois.
+        </p>
+        <button className="btn primary block" onClick={() => setBankImport(true)}>
+          Importer un releve
+        </button>
+      </Card>
+
       <Card title="Tes donnees">
         <Callout tone="info" icon="&#128274;">
           Tout est stocke dans ce navigateur uniquement. Rien n&rsquo;est envoye sur un serveur,
@@ -192,6 +205,8 @@ export function Settings({ theme, onTheme }: { theme: 'light' | 'dark'; onTheme:
           </button>
         </div>
       </Card>
+
+      {bankImport && <ImportModal onClose={() => setBankImport(false)} />}
 
       <Card title="Repere">
         <p className="fine">

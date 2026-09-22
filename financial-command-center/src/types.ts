@@ -31,6 +31,8 @@ export interface Income {
   note?: string
   /** Revenu recurrent attendu chaque mois (sert aux projections). */
   recurring?: boolean
+  /** Empreinte de la ligne de releve d'ou vient ce revenu, si importe. */
+  importKey?: string
 }
 
 export type ObligationCategory =
@@ -114,6 +116,8 @@ export interface Transaction {
   savingsGoalId?: string
   /** Vrai si la depense a ete faite en paiement fractionne. */
   split?: boolean
+  /** Empreinte de la ligne de releve d'ou vient ce mouvement, si importe. */
+  importKey?: string
 }
 
 export interface SavingsGoal {
@@ -124,6 +128,8 @@ export interface SavingsGoal {
   current: number
   /** Objectif systeme non supprimable (epargne libre). */
   system?: boolean
+  /** Photo de l'objectif, en data URL redimensionnee. */
+  image?: string
 }
 
 export interface Settings {

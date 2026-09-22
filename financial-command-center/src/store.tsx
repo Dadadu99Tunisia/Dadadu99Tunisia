@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer } from 'react'
+import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
   AppState, Debt, Income, Obligation, SavingsGoal, Settings, Transaction,
@@ -24,6 +24,7 @@ type Action =
   | { type: 'goal/upsert'; goal: SavingsGoal }
   | { type: 'goal/remove'; id: string }
   | { type: 'goal/deposit'; id: string; amount: number; date: string }
+  | { type: 'import/apply'; transactions: Transaction[]; incomes: Income[] }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -170,6 +171,25 @@ function reducer(state: AppState, action: Action): AppState {
       }
     }
 
+    case 'import/apply': {
+      // Les empreintes d'import garantissent qu'un releve rejoue deux fois
+      // n'ajoute rien : on filtre ici aussi, ceinture et bretelles.
+      const known = new Set(
+        [
+          ...state.transactions.map((t) => t.importKey),
+          ...state.incomes.map((i) => i.importKey),
+        ].filter(Boolean) as string[],
+      )
+      const tx = action.transactions.filter((t) => !t.importKey || !known.has(t.importKey))
+      const inc = action.incomes.filter((i) => !i.importKey || !known.has(i.importKey))
+      if (tx.length === 0 && inc.length === 0) return state
+      return {
+        ...state,
+        transactions: [...state.transactions, ...tx],
+        incomes: [...state.incomes, ...inc],
+      }
+    }
+
     default:
       return state
   }
@@ -179,24 +199,29 @@ interface Ctx {
   state: AppState
   dispatch: (a: Action) => void
   reset: () => void
+  /** Non nul si la derniere ecriture a echoue (quota plein, mode prive). */
+  saveError: 'quota' | 'blocked' | null
 }
 
 const StoreContext = createContext<Ctx | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, load)
+  const [saveError, setSaveError] = useState<'quota' | 'blocked' | null>(null)
 
   useEffect(() => {
-    save(state)
+    const r = save(state)
+    setSaveError(r.ok ? null : r.reason)
   }, [state])
 
   const value = useMemo<Ctx>(
     () => ({
       state,
       dispatch,
+      saveError,
       reset: () => dispatch({ type: 'replace', state: { ...emptyState(), settings: { ...emptyState().settings, openingBalanceDate: today() } } }),
     }),
-    [state],
+    [state, saveError],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

@@ -935,3 +935,101 @@ select.cat-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var
 /* Deux panneaux riches en texte : ils ne tiennent cote a cote qu'au large. */
 .grid.panels { grid-template-columns: 1fr; }
 @media (min-width: 860px) { .grid.panels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ------------------------------------------------------------------ *
+ * Import de releve
+ * ------------------------------------------------------------------ */
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 28px 18px;
+  border: 2px dashed var(--line-strong);
+  border-radius: 20px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone .ico { font-size: 26px; }
+.dropzone strong { font-size: 15px; }
+
+.import-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.import-row:last-child { border-bottom: 0; }
+.import-row.off { opacity: .42; }
+.import-row input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 18px; }
+.import-row .meta { flex: 1; min-width: 0; }
+.import-row .lbl {
+  font-size: 13.5px; font-weight: 580;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.import-row .right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.import-row .amt { font-variant-numeric: tabular-nums; font-weight: 660; font-size: 13.5px; white-space: nowrap; }
+.import-row .amt.pos { color: var(--vie); }
+.import-row select {
+  padding: 4px 8px;
+  font-size: 11.5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-1);
+  outline: none;
+  max-width: 132px;
+}
+.import-row select:focus { border-color: var(--accent); }
+
+/* Images des objectifs d'epargne */
+.img-preview { display: flex; flex-direction: column; gap: 10px; }
+.img-preview img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  display: block;
+}
+
+.goal-cover {
+  position: relative;
+  margin: -18px -18px 14px;
+  height: 148px;
+  overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.goal-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Voile bas pour que le montant reste lisible sur n'importe quelle photo. */
+.goal-cover .veil {
+  position: absolute; inset: auto 0 0 0; height: 62%;
+  background: linear-gradient(to top, rgba(0,0,0,.62), transparent);
+}
+.goal-cover .on-img {
+  position: absolute; left: 14px; right: 14px; bottom: 11px;
+  display: flex; align-items: flex-end; gap: 10px;
+  color: #fff;
+}
+.goal-cover .on-img .n { font-size: 16px; font-weight: 700; letter-spacing: -.02em; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.goal-cover .on-img .t { font-size: 12px; opacity: .92; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.goal-cover .on-img .spacer { flex: 1; }
+.goal-cover .pct {
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(255,255,255,.92); color: #1c1119;
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}

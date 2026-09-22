@@ -49,23 +49,43 @@ export function Savings() {
             const done = g.target > 0 && g.current >= g.target
             return (
               <Card key={g.id}>
-                <div className="row" style={{ marginBottom: 10 }}>
-                  <span className="avatar" aria-hidden style={{ fontSize: 19 }}>{g.emoji}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ fontSize: 16 }}>{g.name}</h3>
-                    <div className="fine">
-                      {g.target > 0 ? `Objectif ${euro(g.target)}` : 'Sans objectif chiffre'}
+                {g.image && (
+                  <div className="goal-cover">
+                    <img src={g.image} alt="" />
+                    <div className="veil" />
+                    <div className="on-img">
+                      <div style={{ minWidth: 0 }}>
+                        <div className="n">{g.emoji} {g.name}</div>
+                        <div className="t">
+                          {g.target > 0 ? `objectif ${euro(g.target)}` : 'sans objectif chiffre'}
+                        </div>
+                      </div>
+                      <span className="spacer" />
+                      {g.target > 0 && <span className="pct">{Math.round(ratio(g.current, g.target) * 100)} %</span>}
                     </div>
                   </div>
-                  {done && <span className="badge good celebrate">&#127881; Atteint</span>}
-                </div>
+                )}
+                {/* Avec une photo, le nom et l'objectif sont deja sur la couverture. */}
+                {!g.image && (
+                  <div className="row" style={{ marginBottom: 10 }}>
+                    <span className="avatar" aria-hidden style={{ fontSize: 19 }}>{g.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ fontSize: 16 }}>{g.name}</h3>
+                      <div className="fine">
+                        {g.target > 0 ? `Objectif ${euro(g.target)}` : 'Sans objectif chiffre'}
+                      </div>
+                    </div>
+                    {done && <span className="badge good celebrate">&#127881; Atteint</span>}
+                  </div>
+                )}
 
                 <div className="row" style={{ alignItems: 'baseline', marginBottom: 8 }}>
                   <span className="num" style={{ fontSize: 24, fontWeight: 740, color: 'var(--epargne)' }}>
                     {euro(g.current)}
                   </span>
                   <span className="spacer" />
-                  {g.target > 0 && (
+                  {g.image && done && <span className="badge good celebrate">&#127881; Atteint</span>}
+                  {g.target > 0 && !g.image && (
                     <span className="fine num">{Math.round(ratio(g.current, g.target) * 100)} %</span>
                   )}
                 </div>

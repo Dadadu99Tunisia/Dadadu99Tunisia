@@ -82,11 +82,22 @@ export function load(): AppState {
   }
 }
 
-export function save(state: AppState): void {
+export type SaveResult = { ok: true } | { ok: false; reason: 'quota' | 'blocked' }
+
+/**
+ * Ecrit l'etat. En cas d'echec on ne jette pas : l'appli continue de
+ * fonctionner en memoire, mais l'appelant doit prevenir l'utilisatrice,
+ * sinon elle croirait ses saisies enregistrees.
+ */
+export function save(state: AppState): SaveResult {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
-  } catch {
-    // quota plein ou stockage bloque : on ne casse pas l'appli
+    return { ok: true }
+  } catch (e) {
+    const quota =
+      e instanceof DOMException &&
+      (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+    return { ok: false, reason: quota ? 'quota' : 'blocked' }
   }
 }
 

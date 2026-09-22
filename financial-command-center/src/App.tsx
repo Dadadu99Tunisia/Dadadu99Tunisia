@@ -38,7 +38,7 @@ const TITLES: Record<View, string> = {
 }
 
 function Shell() {
-  const { state } = useStore()
+  const { state, saveError } = useStore()
   const [view, setView] = useState<View>('dashboard')
   const [expense, setExpense] = useState(false)
   const [income, setIncome] = useState(false)
@@ -90,6 +90,20 @@ function Shell() {
             <span className="spacer" />
             <button className="btn sm" onClick={() => setExpense(true)}>+ Depense</button>
           </header>
+
+          {saveError && (
+            <div className="callout critical" style={{ marginBottom: 14 }}>
+              <span className="ico" aria-hidden>&#9888;&#65039;</span>
+              <div>
+                <strong>Tes dernieres saisies ne sont pas enregistrees</strong>
+                <p>
+                  {saveError === 'quota'
+                    ? "L'espace du navigateur est plein. Exporte tes donnees depuis les reglages, puis allege les images de tes objectifs d'epargne."
+                    : "Le navigateur bloque le stockage local (navigation privee ?). Exporte tes donnees avant de fermer l'onglet."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {view === 'dashboard' && (
             <Dashboard

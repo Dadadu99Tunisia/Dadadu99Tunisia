@@ -7,6 +7,7 @@ import { longDate, monthKey, monthLabel, today } from '../lib/dates'
 import { livingSnapshot } from '../lib/engine'
 import { Bar, Badge, Card, ConfirmButton, Empty, Segmented, Stat } from '../components/ui'
 import { ExpenseModal } from '../modals/ExpenseModal'
+import { ImportModal } from '../modals/ImportModal'
 
 const KIND_ICON: Record<string, string> = {
   vie: '\u{1F6D2}', obligation: '\u{1F4C5}', dette: '\u{1F4C9}',
@@ -17,6 +18,7 @@ export function Expenses() {
   const { state, dispatch } = useStore()
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [filter, setFilter] = useState<'vie' | 'tout'>('vie')
   const [category, setCategory] = useState<TxCategory | 'toutes'>('toutes')
 
@@ -66,7 +68,10 @@ export function Expenses() {
         </div>
       </Card>
 
-      <button className="btn primary block" onClick={() => setCreating(true)}>+ Nouvelle depense</button>
+      <div className="quick-actions">
+        <button className="btn" onClick={() => setImporting(true)}>Importer un releve</button>
+        <button className="btn primary" onClick={() => setCreating(true)}>+ Nouvelle depense</button>
+      </div>
 
       <div className="stack" style={{ gap: 10 }}>
         <Segmented
@@ -129,6 +134,7 @@ export function Expenses() {
         ))
       )}
 
+      {importing && <ImportModal onClose={() => setImporting(false)} />}
       {creating && <ExpenseModal onClose={() => setCreating(false)} />}
       {editing && <ExpenseModal initial={editing} onClose={() => setEditing(null)} />}
     </div>

@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useStore } from '../store'
 import { OBLIGATION_CATEGORY_LABELS, DEBT_KIND_LABELS } from '../types'
 import type { Debt, DebtKind, DebtPriority, Obligation, ObligationCategory, Recurrence, SavingsGoal } from '../types'
 import { euro } from '../lib/money'
 import { today } from '../lib/dates'
 import { uid } from '../lib/storage'
-import { AmountInput, ConfirmButton, Field, Modal, Segmented, useAmount } from '../components/ui'
+import { AmountInput, Callout, ConfirmButton, Field, Modal, Segmented, useAmount } from '../components/ui'
+import { prepareImage } from '../lib/image'
 
 const OBL_CATS = Object.keys(OBLIGATION_CATEGORY_LABELS) as ObligationCategory[]
 const DEBT_KINDS = Object.keys(DEBT_KIND_LABELS) as DebtKind[]
@@ -229,6 +230,22 @@ export function GoalModal({ onClose, initial }: { onClose: () => void; initial?:
   const [name, setName] = useState(initial?.name ?? '')
   const [emoji, setEmoji] = useState(initial?.emoji ?? '\u{1F3AF}')
   const [target, setTarget] = useState(initial ? String(initial.target).replace('.', ',') : '')
+  const [image, setImage] = useState<string | undefined>(initial?.image)
+  const [imageError, setImageError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function onPick(file: File) {
+    setImageError('')
+    setBusy(true)
+    try {
+      setImage(await prepareImage(file))
+    } catch (e) {
+      setImageError(e instanceof Error ? e.message : 'Image illisible.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   function save() {
     if (!name.trim()) return
@@ -241,6 +258,7 @@ export function GoalModal({ onClose, initial }: { onClose: () => void; initial?:
         target: Math.max(0, Number(target.replace(',', '.')) || 0),
         current: initial?.current ?? 0,
         system: initial?.system,
+        image,
       },
     })
     onClose()
@@ -271,6 +289,37 @@ export function GoalModal({ onClose, initial }: { onClose: () => void; initial?:
       <Field label="Objectif" hint="Laisse a 0 pour une epargne sans cible.">
         <input className="num-input" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="3 000" />
       </Field>
+
+      <Field label="Image" hint="Une photo rend l'objectif concret. Elle est redimensionnee avant d'etre stockee.">
+        {image ? (
+          <div className="img-preview">
+            <img src={image} alt="" />
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn sm ghost" onClick={() => fileRef.current?.click()}>Remplacer</button>
+              <button className="btn sm danger" onClick={() => setImage(undefined)}>Retirer</button>
+            </div>
+          </div>
+        ) : (
+          <button className="dropzone" onClick={() => fileRef.current?.click()} disabled={busy}>
+            <span className="ico" aria-hidden>{busy ? '\u23F3' : '\u{1F5BC}\uFE0F'}</span>
+            <strong>{busy ? 'Preparation\u2026' : 'Ajouter une image'}</strong>
+            <span className="fine">JPEG, PNG ou HEIC depuis ton telephone</span>
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) onPick(f)
+            e.target.value = ''
+          }}
+        />
+      </Field>
+
+      {imageError && <Callout tone="critical" icon="&#9888;&#65039;">{imageError}</Callout>}
     </Modal>
   )
 }
