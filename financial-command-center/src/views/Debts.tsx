@@ -3,7 +3,8 @@ import { useStore } from '../store'
 import { DEBT_KIND_LABELS } from '../types'
 import type { Debt } from '../types'
 import { euro, ratio } from '../lib/money'
-import { activeDebts, debtTotal, debtInitialTotal } from '../lib/engine'
+import { activeDebts, debtTotal, debtInitialTotal, debtPayoff, nextDebtCleared } from '../lib/engine'
+import { longDate, today } from '../lib/dates'
 import { Bar, Badge, Callout, Card, Empty, Stat } from '../components/ui'
 import { DebtModal, DebtPaymentModal } from '../modals/Entities'
 
@@ -15,7 +16,9 @@ export function Debts() {
   const [paying, setPaying] = useState<Debt | null>(null)
   const [creating, setCreating] = useState(false)
 
+  const ref = today()
   const active = useMemo(() => activeDebts(state), [state])
+  const next = useMemo(() => nextDebtCleared(state, ref), [state, ref])
   const cleared = useMemo(() => state.debts.filter((d) => d.status === 'paid'), [state.debts])
   const total = debtTotal(state)
   const initial = debtInitialTotal(state)
@@ -69,7 +72,14 @@ export function Debts() {
                     <div className="fine">
                       {DEBT_KIND_LABELS[d.kind]}
                       {d.monthlyPayment > 0 && ` · ${euro(d.monthlyPayment)}/mois le ${d.dueDay ?? 5}`}
-                      {d.installmentsTotal && ` · ${d.installmentsPaid ?? 0}/${d.installmentsTotal} echeances`}
+                      {d.rate ? ` · TAEG ${(d.rate * 100).toFixed(2).replace('.', ',')} %` : ''}
+                      {/* Sans echeances deja payees connues, on annonce la duree,
+                          pas un compteur a zero qui serait faux. */}
+                      {d.installmentsTotal
+                        ? d.installmentsPaid
+                          ? ` · ${d.installmentsPaid}/${d.installmentsTotal} echeances`
+                          : ` · ${d.installmentsTotal} mensualites`
+                        : ''}
                     </div>
                   </div>
                   <Badge tone={PRIORITY_TONE[d.priority]}>{d.priority}</Badge>
@@ -84,6 +94,20 @@ export function Debts() {
                 </div>
 
                 <Bar value={paid} max={d.initialAmount || 1} tone="epargne" tall />
+
+                {(() => {
+                  const p = debtPayoff(d, ref)
+                  if (!p.date) return null
+                  return (
+                    <div className="fine" style={{ marginTop: 9 }}>
+                      {p.contractual ? 'Fin de contrat' : 'Solde estime'} :{' '}
+                      <b>{longDate(p.date)}</b>
+                      {p.monthsLeft !== null && ` \u00b7 ${p.monthsLeft} mois`}
+                      {!p.contractual && d.rate ? ' (hors interets)' : ''}
+                      {next?.id === d.id && ' \u00b7 la prochaine a tomber'}
+                    </div>
+                  )
+                })()}
 
                 <div className="row" style={{ marginTop: 12, gap: 8 }}>
                   <button className="btn sm primary" onClick={() => setPaying(d)}>Rembourser</button>

@@ -52,7 +52,7 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 | **Revenus** | Prevu / facture / encaisse, revenus recurrents, repartition guidee a l'encaissement |
 | **Depenses** | Saisie, import de releves bancaires, categories, modification, suppression, et surtout l'analyse d'impact |
 | **Obligations** | Echeances ponctuelles ou recurrentes ; une obligation reglee recree automatiquement la suivante |
-| **Dettes** | Encours, mensualites, priorites, progression vers zero, celebration a la ligne soldee |
+| **Dettes** | Encours, mensualites, TAEG, fin de contrat, priorites, progression vers zero |
 | **Epargne** | Epargne de precaution en mois de charges, taux et rythme, historique mensuel, provisions et objectifs avec images |
 | **Calendrier** | Fil des echeances avec le solde projete apres chaque evenement |
 | **Projection** | 30 / 60 / 90 jours et 6 mois : tresorerie, dettes, epargne |
@@ -76,6 +76,14 @@ correspondante et previent :
 avec le montant mensuel et l'enveloppe de vie du mois prochain une fois
 l'echeance honoree. L'alerte se desactive dans les reglages ; la dette, elle,
 est toujours creee.
+
+### Fin d'une dette
+
+Une dette porte la date de fin annoncee par l'organisme. Elle fait foi, car
+elle integre les interets — un restant du divise par la mensualite les ignore
+et annonce donc une fin trop tot. Sans date contractuelle, le cockpit estime
+et le dit. La prochaine ligne a tomber est signalee : une victoire proche
+tient mieux qu'un total lointain.
 
 ### Provisions
 
@@ -218,7 +226,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 170 tests : moteur de calcul et import bancaire
+npm test           # 176 tests : moteur de calcul et import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de

@@ -1617,3 +1617,42 @@ export function deadlineStakes(s: AppState) {
   const costs = round2(open.filter((d) => (d.impact ?? 0) < 0).reduce((a, d) => a + yearlyImpact(d), 0))
   return { open: open.length, gains, costs, net: round2(gains + costs) }
 }
+
+/* ------------------------------------------------------------------ */
+/* Fin d'une dette                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface DebtPayoff {
+  /** Date de solde, ou null si rien ne permet de la situer. */
+  date: ISODate | null
+  /** Vrai si elle vient du contrat, faux si elle est estimee. */
+  contractual: boolean
+  monthsLeft: number | null
+}
+
+/**
+ * Quand cette dette sera-t-elle soldee ?
+ * La date du contrat fait foi : elle integre les interets, qu'un simple
+ * restant du divise par la mensualite ignore — et sous-estime donc la fin.
+ */
+export function debtPayoff(d: Debt, ref: ISODate = todayISO()): DebtPayoff {
+  if (d.status === 'paid' || d.remainingAmount <= 0) {
+    return { date: d.paidAt ?? null, contractual: false, monthsLeft: 0 }
+  }
+  if (d.endDate) {
+    return { date: d.endDate, contractual: true, monthsLeft: monthsUntil(d.endDate, ref) }
+  }
+  if (!d.monthlyPayment || d.monthlyPayment <= 0) {
+    return { date: null, contractual: false, monthsLeft: null }
+  }
+  const months = Math.ceil(d.remainingAmount / d.monthlyPayment)
+  return { date: addMonths(ref, months), contractual: false, monthsLeft: months }
+}
+
+/** La dette qui sera soldee en premier : une victoire proche motive. */
+export function nextDebtCleared(s: AppState, ref: ISODate = todayISO()): Debt | undefined {
+  return activeDebts(s)
+    .map((d) => ({ d, p: debtPayoff(d, ref) }))
+    .filter((x) => x.p.date !== null)
+    .sort((a, b) => a.p.date!.localeCompare(b.p.date!))[0]?.d
+}

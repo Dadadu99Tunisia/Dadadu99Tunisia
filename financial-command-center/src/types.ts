@@ -107,6 +107,8 @@ export interface Debt {
   installmentsTotal?: number
   installmentsPaid?: number
   rate?: number
+  /** Fin contractuelle annoncee par l'organisme, interets compris. */
+  endDate?: ISODate
   note?: string
   paidAt?: ISODate
   /** Compte sur lequel la mensualite est prelevee. */

@@ -9,7 +9,7 @@ import {
   provisionsMonthlyTotal, provisionsSaved, refForMonth, savedInMonth,
   savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
   deadlineStakes, deadlinesDueWithin, openDeadlines, overdueDeadlines, yearlyImpact,
-  accountBalance, accountBalances, accountsInTrouble,
+  accountBalance, accountBalances, accountsInTrouble, debtPayoff, nextDebtCleared,
 } from './engine'
 import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
@@ -1334,5 +1334,48 @@ describe('compte pro et virements internes', () => {
     expect(migrated.accounts[0].kind).toBe('perso')
     expect(migrated.accounts[1].kind).toBe('joint')
     expect(bankBalance(migrated, REF)).toBe(100)
+  })
+})
+
+describe('fin d’une dette', () => {
+  it('fait foi de la date du contrat', () => {
+    const d = debt({ remainingAmount: 1600.54, monthlyPayment: 55.6, endDate: '2029-08-04' })
+    const p = debtPayoff(d, REF)
+    expect(p.date).toBe('2029-08-04')
+    expect(p.contractual).toBe(true)
+  })
+
+  it('estime quand le contrat ne dit rien', () => {
+    const p = debtPayoff(debt({ remainingAmount: 300, monthlyPayment: 100 }), REF)
+    expect(p.contractual).toBe(false)
+    expect(p.monthsLeft).toBe(3)
+    expect(p.date).toBe(addMonths(REF, 3))
+  })
+
+  it('n’invente pas de date sans mensualite', () => {
+    const p = debtPayoff(debt({ remainingAmount: 500, monthlyPayment: 0 }), REF)
+    expect(p.date).toBeNull()
+    expect(p.monthsLeft).toBeNull()
+  })
+
+  it('une dette soldee est soldee', () => {
+    const p = debtPayoff(debt({ remainingAmount: 0, status: 'paid', paidAt: REF }), REF)
+    expect(p.monthsLeft).toBe(0)
+  })
+
+  it('l’estimation sous-estime la fin reelle d’un credit a interets', () => {
+    // 1 600,54 / 55,60 = 29 mois, alors que le contrat court jusqu'en 2029.
+    const estime = debtPayoff(debt({ remainingAmount: 1600.54, monthlyPayment: 55.6 }), REF)
+    const contrat = debtPayoff(debt({ remainingAmount: 1600.54, monthlyPayment: 55.6, endDate: '2029-08-04' }), REF)
+    expect(estime.date! < contrat.date!).toBe(true)
+  })
+
+  it('designe la prochaine dette soldee', () => {
+    const s = base()
+    s.debts = [
+      debt({ name: 'Longue', remainingAmount: 8000, monthlyPayment: 190, endDate: '2030-12-05' }),
+      debt({ name: 'Courte', remainingAmount: 43.46, monthlyPayment: 21.73 }),
+    ]
+    expect(nextDebtCleared(s, REF)!.name).toBe('Courte')
   })
 })

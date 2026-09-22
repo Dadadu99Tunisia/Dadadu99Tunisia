@@ -102,6 +102,8 @@ export function DebtModal({ onClose, initial }: { onClose: () => void; initial?:
   const [priority, setPriority] = useState<DebtPriority>(initial?.priority ?? 'moyenne')
   const [kind, setKind] = useState<DebtKind>(initial?.kind ?? 'credit')
   const [debtAccountId, setDebtAccountId] = useState<string | undefined>(initial?.accountId)
+  const [endDate, setEndDate] = useState(initial?.endDate ?? '')
+  const [rateRaw, setRateRaw] = useState(initial?.rate ? String(initial.rate * 100).replace('.', ',') : '')
 
   function save() {
     if (!remaining.valid || !name.trim()) return
@@ -122,7 +124,11 @@ export function DebtModal({ onClose, initial }: { onClose: () => void; initial?:
         status: remaining.value <= 0 ? 'paid' : 'active',
         installmentsTotal: initial?.installmentsTotal,
         installmentsPaid: initial?.installmentsPaid,
-        rate: initial?.rate,
+        rate: (() => {
+          const v = Number(rateRaw.replace(',', '.'))
+          return rateRaw.trim() !== '' && Number.isFinite(v) ? v / 100 : initial?.rate
+        })(),
+        endDate: endDate || undefined,
         accountId: debtAccountId,
       },
     })
@@ -167,6 +173,15 @@ export function DebtModal({ onClose, initial }: { onClose: () => void; initial?:
           {DEBT_KINDS.map((k) => <option key={k} value={k}>{DEBT_KIND_LABELS[k]}</option>)}
         </select>
       </Field>
+      <div className="field-row">
+        <Field label="TAEG" hint="En pourcentage, facultatif.">
+          <input className="num-input" inputMode="decimal" value={rateRaw} onChange={(e) => setRateRaw(e.target.value)} placeholder="17,99" />
+        </Field>
+        <Field label="Fin de contrat" hint="La date annoncee par l&rsquo;organisme.">
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </Field>
+      </div>
+
       <AccountPicker value={debtAccountId} onChange={setDebtAccountId} label="Compte preleve" />
 
       <Field label="Priorite">
