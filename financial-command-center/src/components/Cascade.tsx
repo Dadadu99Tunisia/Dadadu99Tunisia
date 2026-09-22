@@ -64,6 +64,24 @@ export function CascadeView({ c }: { c: Cascade }) {
         </>
       )}
 
+      {c.provisions > 0 && (
+        <>
+          <Arrow />
+          <Step label="PROVISIONS" amount={-c.provisions} tone="out">
+            <ul className="tree">
+              {c.provisionLines.slice(0, 5).map((l, i, arr) => (
+                <li key={l.key}>
+                  <span className="branch" aria-hidden>{i === arr.length - 1 ? '\u2514\u2500\u2500' : '\u251C\u2500\u2500'}</span>
+                  <span className="n">{l.label}</span>
+                  <span className="v">{euro(l.amount)}</span>
+                </li>
+              ))}
+            </ul>
+            <span className="note">Mis de cote pour les factures qui ne tombent pas tous les mois.</span>
+          </Step>
+        </>
+      )}
+
       <Arrow />
       <Step label="RESTE REEL" amount={c.real} tone={c.real >= 0 ? 'final' : 'bad'} big>
         <span className="note">

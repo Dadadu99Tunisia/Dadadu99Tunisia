@@ -13,6 +13,8 @@ import { Projection } from './views/Projection'
 import { Health } from './views/Health'
 import { Habits } from './views/Habits'
 import { Settings } from './views/Settings'
+import { Budget } from './views/Budget'
+import { ToastProvider } from './components/Toast'
 import { ExpenseModal } from './modals/ExpenseModal'
 import { IncomeModal } from './modals/IncomeModal'
 import { BalanceModal } from './modals/Entities'
@@ -21,7 +23,7 @@ import { today } from './lib/dates'
 
 const THEME_KEY = 'cockpit-financier/theme'
 /** Masques en mode stabilisation : on garde l'essentiel sous les yeux. */
-const CRISIS_HIDDEN: View[] = ['habitudes', 'projection', 'epargne']
+const CRISIS_HIDDEN: View[] = ['habitudes', 'projection', 'epargne', 'budget']
 
 const TITLES: Record<View, string> = {
   dashboard: 'Tableau de bord',
@@ -29,6 +31,7 @@ const TITLES: Record<View, string> = {
   depenses: 'Depenses',
   obligations: 'Obligations',
   dettes: 'Dettes',
+  budget: 'Budget type',
   epargne: 'Epargne',
   calendrier: 'Calendrier',
   projection: 'Projection',
@@ -117,6 +120,7 @@ function Shell() {
           {view === 'depenses' && <Expenses />}
           {view === 'obligations' && <Obligations />}
           {view === 'dettes' && <Debts />}
+          {view === 'budget' && <Budget />}
           {view === 'epargne' && <Savings />}
           {view === 'calendrier' && <CalendarView />}
           {view === 'projection' && <Projection />}
@@ -125,6 +129,9 @@ function Shell() {
           {view === 'reglages' && <Settings theme={theme} onTheme={setTheme} />}
         </main>
       </div>
+
+      {/* Sur mobile, l'action la plus frequente reste a portee de pouce. */}
+      <button className="fab" onClick={() => setExpense(true)} aria-label="Nouvelle depense">+</button>
 
       {expense && <ExpenseModal onClose={() => setExpense(false)} />}
       {income && <IncomeModal onClose={() => setIncome(false)} />}
@@ -136,7 +143,9 @@ function Shell() {
 export default function App() {
   return (
     <StoreProvider>
-      <Shell />
+      <ToastProvider>
+        <Shell />
+      </ToastProvider>
     </StoreProvider>
   )
 }

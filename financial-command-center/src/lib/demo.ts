@@ -25,6 +25,16 @@ export function demoState(): AppState {
       expectedMonthlyIncome: 4000,
       safetyBuffer: 1000,
       ownerName: 'Demo',
+      emergencyMonths: 3,
+      categoryBudgets: {
+        alimentation: 320,
+        restaurant: 120,
+        shopping: 200,
+        transport: 110,
+        loisirs: 100,
+        sante: 50,
+        autre: 100,
+      },
     },
     incomes: [
       {
@@ -61,5 +71,15 @@ export function demoState(): AppState {
       { id: uid(), date: addDays(som, 11), description: 'Cinema', category: 'loisirs', amount: 22, kind: 'vie' },
     ],
     savingsGoals: goals,
+    provisions: [
+      {
+        id: uid(), name: 'Taxe fonciere', emoji: '\u{1F3DB}\uFE0F', amount: 1100,
+        dueDate: addMonths(t, 1), recurrence: 'yearly', saved: 340,
+      },
+      {
+        id: uid(), name: 'Assurance annuelle', emoji: '\u{1F6E1}\uFE0F', amount: 480,
+        dueDate: addMonths(t, 5), recurrence: 'yearly', saved: 80,
+      },
+    ],
   }
 }

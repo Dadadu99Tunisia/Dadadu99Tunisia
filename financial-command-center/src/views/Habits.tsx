@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 import { behaviourComparison } from '../lib/engine'
 import { TX_CATEGORY_LABELS } from '../types'
@@ -6,17 +6,24 @@ import type { TxCategory } from '../types'
 import { euro, ratio } from '../lib/money'
 import { monthKey, monthLabel, previousMonthKey, today } from '../lib/dates'
 import { Bar, Card, Empty, Stat } from '../components/ui'
+import { MonthSwitcher } from '../components/MonthSwitcher'
+import { refForMonth } from '../lib/engine'
 
 export function Habits() {
   const { state } = useStore()
-  const ref = today()
+  const now = today()
+  const current = monthKey(now)
+  const [month, setMonth] = useState(current)
+  const ref = refForMonth(month, now)
   const c = useMemo(() => behaviourComparison(state, ref), [state, ref])
-  const key = monthKey(ref)
+  const key = month
   const max = c.current.byCategory[0]?.amount ?? 1
 
   return (
     <div className="stack">
-      <Card title={`Ce mois — ${monthLabel(key)}`}>
+      <MonthSwitcher value={month} onChange={setMonth} current={current} />
+
+      <Card title={monthLabel(key)}>
         <div className="grid k3">
           <Stat label="Depenses" value={euro(c.current.spent)} accent="vie" hint={<Delta v={c.deltaSpent} invert />} />
           <Stat label="Nombre d'achats" value={String(c.current.count)} hint={<Delta v={c.deltaCount} invert />} />

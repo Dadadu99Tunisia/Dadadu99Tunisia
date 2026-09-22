@@ -12,6 +12,10 @@ vie du mois) est retire avant d'annoncer un montant depensable.
 
 ---
 
+Tous les ecrans mensuels se parcourent mois par mois, avec le meme selecteur
+au meme endroit. Un mois clos est raconte (ce qui a ete depense), un mois a
+venir est annonce comme entier : aucun ecran ne projette un mois deja termine.
+
 ## La cascade
 
 Le modele n'est pas `SALAIRE -> DEPENSES -> ce qui reste`, mais :
@@ -27,6 +31,8 @@ VIE              (enveloppe fermee, 1 000 EUR par defaut)
    |
 DETTES           (mensualites du mois)
    |
+PROVISIONS       (les factures non mensuelles, lissees)
+   |
 RESTE REEL       -> epargne
 ```
 
@@ -39,12 +45,13 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 
 | Module | Role |
 |---|---|
-| **Tableau de bord** | Solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade du mois |
+| **Tableau de bord** | Meteo du mois, faits marquants, solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade |
+| **Budget type** | Repartition prevue de l'enveloppe de vie par categorie, comparee au reel |
 | **Revenus** | Prevu / facture / encaisse, revenus recurrents, repartition guidee a l'encaissement |
 | **Depenses** | Saisie, import de releves bancaires, categories, modification, suppression, et surtout l'analyse d'impact |
 | **Obligations** | Echeances ponctuelles ou recurrentes ; une obligation reglee recree automatiquement la suivante |
 | **Dettes** | Encours, mensualites, priorites, progression vers zero, celebration a la ligne soldee |
-| **Epargne** | Objectifs configurables, images de couverture et progression |
+| **Epargne** | Epargne de precaution en mois de charges, taux et rythme, historique mensuel, provisions et objectifs avec images |
 | **Calendrier** | Fil des echeances avec le solde projete apres chaque evenement |
 | **Projection** | 30 / 60 / 90 jours et 6 mois : tresorerie, dettes, epargne |
 | **Sante** | Score sur 100, six facteurs objectifs, chacun explique |
@@ -67,6 +74,29 @@ correspondante et previent :
 avec le montant mensuel et l'enveloppe de vie du mois prochain une fois
 l'echeance honoree. L'alerte se desactive dans les reglages ; la dette, elle,
 est toujours creee.
+
+### Provisions
+
+Une taxe fonciere de 1 100 EUR en octobre n'est pas une surprise : c'est
+91 EUR par mois depuis un an. Une provision transforme une facture non
+mensuelle en effort regulier. Le cockpit calcule l'effort restant
+(`(montant - deja mis de cote) / mois restants`), l'ajoute a la cascade, et
+signale une echeance qui approche sans etre couverte. Quand la facture
+arrive, la provision est reprise et l'echeance suivante programmee.
+
+### Epargne de precaution
+
+Elle se mesure en **mois de charges tenables sans aucune rentree d'argent**,
+pas en euros : c'est ce chiffre qui dit si un mois creux est survivable. Les
+charges comptees sont reelles (obligations mensuelles + budget de vie +
+mensualites de dettes + provisions). S'y ajoutent le taux d'epargne du mois,
+le rythme moyen sur trois mois et le delai estime pour atteindre la cible.
+
+### Budget type
+
+Une repartition prevue de l'enveloppe de vie par categorie, comparee au reel
+de chaque mois. Elle ne bloque rien : le seul plafond ferme reste l'enveloppe
+globale. Trois repartitions de depart evitent la page blanche.
 
 ### Import de releves bancaires
 
@@ -129,7 +159,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 99 tests : moteur de calcul et import bancaire
+npm test           # 142 tests : moteur de calcul et import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de
@@ -145,14 +175,16 @@ src/
   lib/
     engine.ts         tous les calculs derives — aucune logique metier ailleurs
     engine.test.ts    cas limites : mois sans revenu, depassement, dette
-                      partielle, recurrences, fractionnes, projection
+                      partielle, recurrences, fractionnes, projection,
+                      provisions, mois clos, meteo
     bankImport.ts     lecture des releves CSV / OFX / QIF, categorisation,
                       detection des doublons
     bankImport.test.ts formats reels des banques francaises
     image.ts          redimensionnement avant stockage
     storage.ts        chargement, normalisation, export / import, quota
     dates.ts money.ts utilitaires
-  components/         primitives d'interface, graphique, cascade
+  components/         primitives d'interface, graphiques, cascade, toasts,
+                      selecteur de mois
   views/              un fichier par ecran
   modals/             saisie et analyse d'impact
 ```

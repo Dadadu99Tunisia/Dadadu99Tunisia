@@ -120,6 +120,24 @@ export interface Transaction {
   importKey?: string
 }
 
+/**
+ * Une provision : une depense non mensuelle (taxe fonciere, assurance
+ * annuelle, revision) pour laquelle on met de cote un peu chaque mois,
+ * au lieu de la subir le jour ou elle tombe.
+ */
+export interface Provision {
+  id: string
+  name: string
+  emoji: string
+  /** Montant de la facture attendue. */
+  amount: number
+  dueDate: ISODate
+  recurrence: Recurrence
+  /** Deja mis de cote pour cette echeance. */
+  saved: number
+  note?: string
+}
+
 export interface SavingsGoal {
   id: string
   name: string
@@ -143,6 +161,10 @@ export interface Settings {
   /** Coussin de tresorerie conserve avant de basculer l'excedent en epargne. */
   safetyBuffer: number
   ownerName: string
+  /** Nombre de mois de charges vise par l'epargne de precaution. */
+  emergencyMonths: number
+  /** Repartition prevue de l'enveloppe de vie, par categorie. */
+  categoryBudgets: Partial<Record<TxCategory, number>>
 }
 
 export interface AppState {
@@ -153,6 +175,7 @@ export interface AppState {
   debts: Debt[]
   transactions: Transaction[]
   savingsGoals: SavingsGoal[]
+  provisions: Provision[]
 }
 
 export const TX_CATEGORY_LABELS: Record<TxCategory, string> = {
@@ -168,6 +191,22 @@ export const TX_CATEGORY_LABELS: Record<TxCategory, string> = {
   dette: 'Dette',
   epargne: 'Epargne',
   autre: 'Autre',
+}
+
+/** Icone par categorie : une liste se lit plus vite avec un repere visuel. */
+export const TX_CATEGORY_EMOJI: Record<TxCategory, string> = {
+  alimentation: '\u{1F34E}',
+  restaurant: '\u{1F37D}\uFE0F',
+  shopping: '\u{1F6CD}\uFE0F',
+  transport: '\u{1F687}',
+  loisirs: '\u{1F3AC}',
+  logement: '\u{1F3E0}',
+  sante: '\u{1FA7A}',
+  professionnel: '\u{1F4BC}',
+  abonnements: '\u{1F501}',
+  dette: '\u{1F4C9}',
+  epargne: '\u{1F6DF}',
+  autre: '\u{1F4CC}',
 }
 
 export const OBLIGATION_CATEGORY_LABELS: Record<ObligationCategory, string> = {

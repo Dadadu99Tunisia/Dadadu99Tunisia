@@ -106,9 +106,16 @@ export function relativeDue(due: ISODate, ref: ISODate = today()): string {
   const n = diffDays(due, ref)
   if (n === 0) return "aujourd’hui"
   if (n === 1) return 'demain'
-  if (n > 1) return `dans ${n} jours`
   if (n === -1) return 'hier'
-  return `en retard de ${Math.abs(n)} jours`
+  if (n > 1) {
+    if (n < 60) return `dans ${n} jours`
+    const months = Math.round(n / 30.44)
+    return months >= 12 && months % 12 === 0
+      ? `dans ${months / 12} an${months > 12 ? 's' : ''}`
+      : `dans ${months} mois`
+  }
+  const late = Math.abs(n)
+  return late < 60 ? `en retard de ${late} jours` : `en retard de ${Math.round(late / 30.44)} mois`
 }
 
 /** Prochaine occurrence d'un jour de prelevement, a partir de ref. */

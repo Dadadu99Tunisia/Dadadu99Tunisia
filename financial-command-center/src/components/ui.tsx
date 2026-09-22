@@ -250,3 +250,34 @@ export function useAmount(initial = '') {
   const value = parseAmount(raw)
   return { raw, setRaw, value, valid: Number.isFinite(value) && value > 0 }
 }
+
+/** Anneau de progression : lisible d'un coup d'oeil, sans lire de chiffre. */
+export function Ring({
+  value, max, size = 62, stroke = 7, color = 'var(--epargne)', label,
+}: {
+  value: number
+  max: number
+  size?: number
+  stroke?: number
+  color?: string
+  label?: string
+}) {
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  const pct = ratio(value, max)
+  return (
+    <div className="ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} aria-hidden>
+        <circle className="ring-bg" cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} />
+        <circle
+          className="ring-fg"
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct)}
+        />
+      </svg>
+      <span className="ring-label">{label ?? `${Math.round(pct * 100)} %`}</span>
+    </div>
+  )
+}

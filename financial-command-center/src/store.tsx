@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  AppState, Debt, Income, Obligation, SavingsGoal, Settings, Transaction,
+  AppState, Debt, Income, Obligation, Provision, SavingsGoal, Settings, Transaction,
 } from './types'
 import { load, save, uid, emptyState } from './lib/storage'
 import { addMonths, today } from './lib/dates'
@@ -25,6 +25,10 @@ type Action =
   | { type: 'goal/remove'; id: string }
   | { type: 'goal/deposit'; id: string; amount: number; date: string }
   | { type: 'import/apply'; transactions: Transaction[]; incomes: Income[] }
+  | { type: 'provision/upsert'; provision: Provision }
+  | { type: 'provision/remove'; id: string }
+  | { type: 'provision/fund'; id: string; amount: number; date: string }
+  | { type: 'provision/settle'; id: string; date: string }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -168,6 +172,72 @@ function reducer(state: AppState, action: Action): AppState {
           g.id === action.id ? { ...g, current: round2(Math.max(0, g.current + action.amount)) } : g,
         ),
         transactions: [...state.transactions, tx],
+      }
+    }
+
+    case 'provision/upsert': {
+      const exists = state.provisions.some((p) => p.id === action.provision.id)
+      return {
+        ...state,
+        provisions: exists
+          ? state.provisions.map((p) => (p.id === action.provision.id ? action.provision : p))
+          : [...state.provisions, action.provision],
+      }
+    }
+    case 'provision/remove':
+      return { ...state, provisions: state.provisions.filter((p) => p.id !== action.id) }
+
+    case 'provision/fund': {
+      const p = state.provisions.find((x) => x.id === action.id)
+      if (!p || action.amount === 0) return state
+      // Mettre de cote est un vrai virement : l'argent quitte le compte courant.
+      const tx: Transaction = {
+        id: uid(), date: action.date,
+        description: action.amount > 0 ? `Provision \u2014 ${p.name}` : `Reprise provision \u2014 ${p.name}`,
+        category: 'epargne', amount: action.amount,
+        kind: action.amount > 0 ? 'epargne' : 'ajustement',
+      }
+      return {
+        ...state,
+        provisions: state.provisions.map((x) =>
+          x.id === action.id ? { ...x, saved: round2(Math.max(0, x.saved + action.amount)) } : x,
+        ),
+        transactions: [...state.transactions, tx],
+      }
+    }
+
+    case 'provision/settle': {
+      const p = state.provisions.find((x) => x.id === action.id)
+      if (!p) return state
+      const step =
+        p.recurrence === 'monthly' ? 1
+          : p.recurrence === 'quarterly' ? 3
+            : p.recurrence === 'yearly' ? 12 : 0
+      // Le montant deja provisionne revient sur le compte pour payer la
+      // facture ; seul le reste a decouvert pese vraiment sur le mois.
+      const fromSavings = round2(Math.min(p.saved, p.amount))
+      const settleTxs: Transaction[] = [
+        {
+          id: uid(), date: action.date, description: `Reprise provision \u2014 ${p.name}`,
+          category: 'epargne' as const, amount: fromSavings, kind: 'ajustement' as const,
+        },
+        {
+          id: uid(), date: action.date, description: p.name,
+          category: 'autre' as const, amount: p.amount, kind: 'obligation' as const,
+        },
+      ]
+      const txs = settleTxs.filter((t) => t.amount > 0)
+
+      return {
+        ...state,
+        provisions: step
+          ? state.provisions.map((x) =>
+            x.id === action.id
+              ? { ...x, saved: round2(Math.max(0, x.saved - fromSavings)), dueDate: addMonths(x.dueDate, step) }
+              : x,
+          )
+          : state.provisions.filter((x) => x.id !== action.id),
+        transactions: [...state.transactions, ...txs],
       }
     }
 

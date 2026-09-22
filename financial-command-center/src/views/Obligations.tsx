@@ -6,10 +6,12 @@ import { euro } from '../lib/money'
 import { longDate, relativeDue, today } from '../lib/dates'
 import { obligationsDueWithin, obligationsTotal, overdueObligations, unpaidObligations } from '../lib/engine'
 import { Badge, Callout, Card, Empty, Segmented, Stat } from '../components/ui'
+import { useToast } from '../components/Toast'
 import { ObligationModal } from '../modals/Entities'
 
 export function Obligations() {
   const { state, dispatch } = useStore()
+  const { notify } = useToast()
   const [editing, setEditing] = useState<Obligation | null>(null)
   const [creating, setCreating] = useState(false)
   const [tab, setTab] = useState<'a_payer' | 'paye'>('a_payer')
@@ -86,7 +88,13 @@ export function Obligations() {
                     {o.status === 'a_payer' ? (
                       <button
                         className="btn sm primary"
-                        onClick={() => dispatch({ type: 'obligation/pay', id: o.id, date: today() })}
+                        onClick={() => {
+                          dispatch({ type: 'obligation/pay', id: o.id, date: today() })
+                          notify(`${o.name} reglee.`, {
+                            tone: 'good',
+                            undo: () => dispatch({ type: 'obligation/unpay', id: o.id }),
+                          })
+                        }}
                       >
                         Payer
                       </button>

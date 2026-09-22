@@ -4,8 +4,11 @@ import type {
   Income,
   ISODate,
   Obligation,
+  Provision,
   Transaction,
+  TxCategory,
 } from '../types'
+import { TX_CATEGORY_LABELS } from '../types'
 import { round2, ratio, clamp, euro } from './money'
 import {
   addDays,
@@ -908,6 +911,10 @@ export interface Cascade {
   afterLiving: number
   debts: number
   debtLines: CascadeLeaf[]
+  afterDebts: number
+  /** Effort mensuel de mise de cote pour les depenses non mensuelles. */
+  provisions: number
+  provisionLines: CascadeLeaf[]
   /** Ce qui reste vraiment : l'epargne possible de ce mois. */
   real: number
 }
@@ -955,10 +962,19 @@ export function monthlyCascade(s: AppState, ref: ISODate = todayISO()): Cascade 
     }))
   const debts = round2(debtLines.reduce((a, l) => a + l.amount, 0))
 
+  const provisionLines: CascadeLeaf[] = s.provisions
+    .map((p) => {
+      const st = provisionStatus(p, ref)
+      return { key: p.id, label: `${p.emoji} ${p.name}`, amount: st.monthly }
+    })
+    .filter((l) => l.amount > 0)
+  const provisions = round2(provisionLines.reduce((a, l) => a + l.amount, 0))
+
   const income = round2(incomeCashed + incomeExpected)
   const afterFixed = round2(income - fixedTotal)
   const living = s.settings.livingBudget
   const afterLiving = round2(afterFixed - living)
+  const afterDebts = round2(afterLiving - debts)
 
   return {
     monthKey: key,
@@ -974,7 +990,10 @@ export function monthlyCascade(s: AppState, ref: ISODate = todayISO()): Cascade 
     afterLiving,
     debts,
     debtLines: debtLines.sort((a, b) => b.amount - a.amount),
-    real: round2(afterLiving - debts),
+    afterDebts,
+    provisions,
+    provisionLines: provisionLines.sort((a, b) => b.amount - a.amount),
+    real: round2(afterDebts - provisions),
   }
 }
 
@@ -991,4 +1010,451 @@ export function incomeCascade(s: AppState, amount: number, ref: ISODate = todayI
     real: a.epargne,
     reasons: a.reasons,
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Navigation dans les mois                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Date de reference pour observer un mois donne.
+ * Le mois en cours s'observe a aujourd'hui ; un mois passe a sa derniere
+ * journee (il est clos) ; un mois futur a son premier jour (tout reste a faire).
+ */
+export function refForMonth(key: string, ref: ISODate = todayISO()): ISODate {
+  const current = monthKey(ref)
+  if (key === current) return ref
+  return key < current ? endOfMonth(`${key}-01`) : `${key}-01`
+}
+
+export interface MonthPosition {
+  key: string
+  isPast: boolean
+  isCurrent: boolean
+  isFuture: boolean
+  ref: ISODate
+}
+
+export function monthPosition(key: string, ref: ISODate = todayISO()): MonthPosition {
+  const current = monthKey(ref)
+  return {
+    key,
+    isPast: key < current,
+    isCurrent: key === current,
+    isFuture: key > current,
+    ref: refForMonth(key, ref),
+  }
+}
+
+export function shiftMonth(key: string, delta: number): string {
+  return monthKey(addMonths(`${key}-01`, delta))
+}
+
+/* ------------------------------------------------------------------ */
+/* Provisions : les depenses non mensuelles, lissees                    */
+/* ------------------------------------------------------------------ */
+
+export interface ProvisionStatus {
+  provision: Provision
+  /** Mois restants avant l'echeance, au moins 1. */
+  monthsLeft: number
+  /** Ce qu'il reste a mettre de cote. */
+  missing: number
+  /** Effort mensuel pour y arriver a temps. */
+  monthly: number
+  /** Part deja couverte, bornee a 1. */
+  covered: number
+  ready: boolean
+  late: boolean
+}
+
+/** Nombre de mois calendaires entre deux dates, au moins 1. */
+export function monthsUntil(due: ISODate, ref: ISODate = todayISO()): number {
+  const a = fromISO(ref)
+  const b = fromISO(due)
+  const months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth())
+  // Une echeance plus tard dans le mois courant laisse encore ce mois-ci.
+  return Math.max(1, months + (b.getDate() >= a.getDate() ? 0 : 0) + (months <= 0 ? 1 : 0))
+}
+
+export function provisionStatus(p: Provision, ref: ISODate = todayISO()): ProvisionStatus {
+  const missing = round2(Math.max(0, p.amount - p.saved))
+  const monthsLeft = monthsUntil(p.dueDate, ref)
+  return {
+    provision: p,
+    monthsLeft,
+    missing,
+    monthly: round2(missing / monthsLeft),
+    covered: ratio(p.saved, p.amount),
+    ready: p.saved >= p.amount,
+    late: p.dueDate < ref && p.saved < p.amount,
+  }
+}
+
+export function provisionsMonthlyTotal(s: AppState, ref: ISODate = todayISO()): number {
+  return round2(s.provisions.reduce((a, p) => a + provisionStatus(p, ref).monthly, 0))
+}
+
+export function provisionsSaved(s: AppState): number {
+  return round2(s.provisions.reduce((a, p) => a + p.saved, 0))
+}
+
+/* ------------------------------------------------------------------ */
+/* Epargne : rythme, taux, fonds de precaution                          */
+/* ------------------------------------------------------------------ */
+
+/** Ce qui a reellement ete mis de cote sur un mois. */
+export function savedInMonth(s: AppState, key: string): number {
+  return round2(
+    s.transactions
+      .filter((t) => t.kind === 'epargne' && monthKey(t.date) === key)
+      .reduce((a, t) => a + Math.abs(t.amount), 0),
+  )
+}
+
+export function incomeInMonth(s: AppState, key: string): number {
+  return round2(
+    s.incomes
+      .filter((i) => i.status === 'encaisse' && monthKey(i.date) === key)
+      .reduce((a, i) => a + i.amount, 0),
+  )
+}
+
+/** Part du revenu du mois reellement epargnee. */
+export function savingsRate(s: AppState, key: string): number {
+  const income = incomeInMonth(s, key)
+  if (income <= 0) return 0
+  return savedInMonth(s, key) / income
+}
+
+/** Moyenne mensuelle epargnee sur les `months` derniers mois revolus. */
+export function savingsPace(s: AppState, months = 3, ref: ISODate = todayISO()): number {
+  const current = monthKey(ref)
+  let total = 0
+  for (let i = 1; i <= months; i++) total += savedInMonth(s, shiftMonth(current, -i))
+  return round2(total / months)
+}
+
+/** Historique mensuel de l'epargne, pour le graphique. */
+export function savingsHistory(s: AppState, months = 12, ref: ISODate = todayISO()) {
+  const current = monthKey(ref)
+  const out: { key: string; amount: number }[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const key = shiftMonth(current, -i)
+    out.push({ key, amount: savedInMonth(s, key) })
+  }
+  return out
+}
+
+export interface EmergencyFund {
+  saved: number
+  /** Charges mensuelles a couvrir : obligations + vie + dettes + provisions. */
+  monthlyNeed: number
+  monthsCovered: number
+  targetMonths: number
+  targetAmount: number
+  covered: number
+  missing: number
+  pace: number
+  /** Mois restants au rythme actuel, ou null si le rythme est nul. */
+  monthsToComplete: number | null
+}
+
+/**
+ * Le fonds de precaution se mesure en mois de charges tenables sans revenu,
+ * pas en euros : c'est ce chiffre-la qui dit si un mois creux est survivable.
+ */
+export function emergencyFund(s: AppState, ref: ISODate = todayISO()): EmergencyFund {
+  const key = monthKey(ref)
+  const fixed = round2(
+    s.obligations
+      .filter((o) => o.recurrence === 'monthly')
+      .reduce((a, o) => a + o.amount, 0),
+  )
+  const debts = round2(
+    activeDebts(s).reduce((a, d) => a + Math.min(d.remainingAmount, d.monthlyPayment), 0),
+  )
+  const monthlyNeed = round2(fixed + s.settings.livingBudget + debts + provisionsMonthlyTotal(s, ref))
+  const saved = savingsTotal(s)
+  const targetMonths = Math.max(1, s.settings.emergencyMonths)
+  const targetAmount = round2(monthlyNeed * targetMonths)
+  const missing = round2(Math.max(0, targetAmount - saved))
+  const pace = savingsPace(s, 3, ref) || savedInMonth(s, key)
+  return {
+    saved,
+    monthlyNeed,
+    monthsCovered: monthlyNeed > 0 ? saved / monthlyNeed : 0,
+    targetMonths,
+    targetAmount,
+    covered: ratio(saved, targetAmount),
+    missing,
+    pace,
+    monthsToComplete: pace > 0 && missing > 0 ? Math.ceil(missing / pace) : missing <= 0 ? 0 : null,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Repartition de l'enveloppe de vie par categorie                      */
+/* ------------------------------------------------------------------ */
+
+export interface CategoryRow {
+  category: TxCategory
+  planned: number
+  actual: number
+  /** planned - actual : positif = il reste, negatif = depassement. */
+  delta: number
+  share: number
+  count: number
+}
+
+export interface CategoryBreakdown {
+  rows: CategoryRow[]
+  plannedTotal: number
+  actualTotal: number
+  budget: number
+  /** Ecart entre la somme des enveloppes et le budget de vie. */
+  unallocated: number
+}
+
+export function categoryBreakdown(s: AppState, key: string): CategoryBreakdown {
+  const budgets = s.settings.categoryBudgets || {}
+  const rows: CategoryRow[] = []
+  const month = s.transactions.filter((t) => t.kind === 'vie' && monthKey(t.date) === key)
+  const actualTotal = round2(month.reduce((a, t) => a + Math.abs(t.amount), 0))
+
+  const categories = new Set<TxCategory>([
+    ...(Object.keys(budgets) as TxCategory[]),
+    ...month.map((t) => t.category),
+  ])
+
+  for (const category of categories) {
+    const rowsForCat = month.filter((t) => t.category === category)
+    const actual = round2(rowsForCat.reduce((a, t) => a + Math.abs(t.amount), 0))
+    const planned = round2(budgets[category] || 0)
+    rows.push({
+      category,
+      planned,
+      actual,
+      delta: round2(planned - actual),
+      share: actualTotal > 0 ? actual / actualTotal : 0,
+      count: rowsForCat.length,
+    })
+  }
+
+  rows.sort((a, b) => b.actual - a.actual || b.planned - a.planned)
+  const plannedTotal = round2(rows.reduce((a, r) => a + r.planned, 0))
+  return {
+    rows,
+    plannedTotal,
+    actualTotal,
+    budget: s.settings.livingBudget,
+    unallocated: round2(s.settings.livingBudget - plannedTotal),
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Meteo du mois et faits marquants                                     */
+/* ------------------------------------------------------------------ */
+
+export type WeatherLevel = 'large' | 'serre' | 'tendu' | 'depasse'
+
+export interface Weather {
+  level: WeatherLevel
+  title: string
+  detail: string
+  /** Enveloppe restante projetee en fin de mois, au rythme actuel. */
+  projectedEnd: number
+  pace: number
+}
+
+/**
+ * La meteo repond a la seule question du matin : est-ce que ca passe ?
+ * Elle compare le rythme reel au rythme tenable jusqu'a la fin du mois.
+ */
+export function weather(
+  s: AppState,
+  ref: ISODate = todayISO(),
+  now: ISODate = todayISO(),
+): Weather {
+  const l = livingSnapshot(s, ref)
+  const d = fromISO(ref)
+  const total = daysInMonth(d.getFullYear(), d.getMonth())
+  const elapsed = Math.max(1, dayOfMonth(ref))
+  const perDaySoFar = l.spent / elapsed
+  const projectedSpend = round2(perDaySoFar * total)
+  const projectedEnd = round2(l.budget - projectedSpend)
+  const position = monthKey(ref) < monthKey(now) ? 'past' : monthKey(ref) > monthKey(now) ? 'future' : 'current'
+
+  // Un mois clos ne se projette pas : il se raconte.
+  if (position === 'past') {
+    const over = l.remaining < 0
+    return {
+      level: over ? 'depasse' : l.remaining < l.budget * 0.1 ? 'serre' : 'large',
+      title: over ? 'Mois termine en depassement' : 'Mois termine',
+      detail: over
+        ? `Tu avais depasse l'enveloppe de ${euro(l.overspent)}.`
+        : `Tu avais depense ${euro(l.spent)} sur ${euro(l.budget)}, soit ${euro(l.remaining)} non utilises.`,
+      projectedEnd: l.remaining,
+      pace: round2(l.spent / total),
+    }
+  }
+
+  // Un mois a venir n'a pas encore de rythme.
+  if (position === 'future') {
+    return {
+      level: 'large',
+      title: 'Mois a venir',
+      detail: `L'enveloppe de ${euro(l.budget)} est encore entiere.`,
+      projectedEnd: l.budget,
+      pace: 0,
+    }
+  }
+
+  if (l.remaining < 0) {
+    return {
+      level: 'depasse',
+      title: 'Enveloppe depassee',
+      detail: `Tu as depense ${euro(l.overspent)} de plus que ton budget de vie.`,
+      projectedEnd,
+      pace: round2(perDaySoFar),
+    }
+  }
+  if (projectedEnd < 0) {
+    return {
+      level: 'tendu',
+      title: 'Mois tendu',
+      detail: `A ce rythme, tu finirais le mois ${euro(-projectedEnd)} au-dela de l'enveloppe.`,
+      projectedEnd,
+      pace: round2(perDaySoFar),
+    }
+  }
+  if (projectedEnd < l.budget * 0.1) {
+    return {
+      level: 'serre',
+      title: 'Ca se joue serre',
+      detail: `Il resterait environ ${euro(projectedEnd)} de marge en fin de mois. Garde le cap.`,
+      projectedEnd,
+      pace: round2(perDaySoFar),
+    }
+  }
+  return {
+    level: 'large',
+    title: 'Tu as de la marge',
+    detail: `A ce rythme, il te resterait ${euro(projectedEnd)} en fin de mois.`,
+    projectedEnd,
+    pace: round2(perDaySoFar),
+  }
+}
+
+export interface Insight {
+  id: string
+  tone: 'good' | 'info' | 'warn' | 'critical'
+  icon: string
+  title: string
+  detail: string
+}
+
+/**
+ * Trois faits au maximum, tries par ce qui merite une decision.
+ * L'objectif est de comprendre le mois en quelques secondes, pas de tout lire.
+ */
+export function insights(
+  s: AppState,
+  ref: ISODate = todayISO(),
+  now: ISODate = todayISO(),
+): Insight[] {
+  const out: Insight[] = []
+  const key = monthKey(ref)
+  const closed = key < monthKey(now)
+  const future = key > monthKey(now)
+  const l = livingSnapshot(s, ref)
+  const w = weather(s, ref, now)
+  const breakdown = categoryBreakdown(s, key)
+  const overdue = overdueObligations(s, ref)
+  const upcoming = obligationsDueWithin(s, 7, ref)
+  const lateProvisions = s.provisions.map((p) => provisionStatus(p, ref)).filter((p) => p.late)
+
+  if (overdue.length > 0) {
+    out.push({
+      id: 'overdue',
+      tone: 'critical',
+      icon: '⚠️',
+      title: `${overdue.length} obligation(s) en retard`,
+      detail: `${euro(overdue.reduce((a, o) => a + o.amount, 0))} a regler. C'est le premier poste a traiter.`,
+    })
+  }
+
+  const worst = breakdown.rows.filter((r) => r.planned > 0 && r.delta < 0).sort((a, b) => a.delta - b.delta)[0]
+  if (worst) {
+    out.push({
+      id: `over-${worst.category}`,
+      tone: 'warn',
+      icon: '\u{1F53A}',
+      title: `${TX_CATEGORY_LABELS[worst.category]} depasse de ${euro(-worst.delta)}`,
+      detail: `${euro(worst.actual)} depenses contre ${euro(worst.planned)} prevus. A rattraper sur une autre enveloppe, ou a ajuster.`,
+    })
+  }
+
+  if (!closed && !future && l.remaining >= 0 && l.paceDelta > 0) {
+    out.push({
+      id: 'under',
+      tone: 'good',
+      icon: '\u{1F340}',
+      title: `Tu es ${euro(l.paceDelta)} sous ton rythme`,
+      detail: `${euro(l.spent)} depenses la ou ${euro(l.paceTarget)} etaient "attendus" a ce stade du mois.`,
+    })
+  }
+
+  if (closed) {
+    out.push({
+      id: 'closed',
+      tone: l.remaining >= 0 ? 'good' : 'warn',
+      icon: '\u{1F3C1}',
+      title: l.remaining >= 0
+        ? `Mois termine avec ${euro(l.remaining)} non depenses`
+        : `Mois termine ${euro(l.overspent)} au-dela de l'enveloppe`,
+      detail: `${euro(l.spent)} depenses en ${l.count} achat(s) sur une enveloppe de ${euro(l.budget)}.`,
+    })
+  } else if (future) {
+    out.push({
+      id: 'future',
+      tone: 'info',
+      icon: '\u{1F5D3}\uFE0F',
+      title: 'Mois a venir',
+      detail: `L'enveloppe de ${euro(l.budget)} est encore entiere. Les echeances connues apparaissent dans le calendrier.`,
+    })
+  } else {
+    out.push({
+      id: 'end',
+      tone: w.level === 'large' ? 'good' : w.level === 'serre' ? 'info' : 'warn',
+      title: `Fin de mois estimee a ${euro(w.projectedEnd)}`,
+      icon: '\u{1F3AF}',
+      detail:
+        l.remaining > 0
+          ? `Soit ${euro(l.perDay)} par jour sur les ${l.daysLeft} jours restants.`
+          : `L'enveloppe est epuisee : chaque euro depense entame le mois prochain.`,
+    })
+  }
+
+  if (!closed && upcoming.length > 0 && overdue.length === 0) {
+    out.push({
+      id: 'soon',
+      tone: 'info',
+      icon: '\u{1F4C5}',
+      title: `${euro(upcoming.reduce((a, o) => a + o.amount, 0))} d'echeances sous 7 jours`,
+      detail: upcoming.map((o) => o.name).slice(0, 3).join(', ') + '.',
+    })
+  }
+
+  if (lateProvisions.length > 0) {
+    out.push({
+      id: 'provision',
+      tone: 'warn',
+      icon: '\u{1F3DB}️',
+      title: `${lateProvisions.length} provision(s) incomplete(s)`,
+      detail: `Il manque ${euro(lateProvisions.reduce((a, p) => a + p.missing, 0))} pour couvrir une facture deja echue.`,
+    })
+  }
+
+  return out.slice(0, 3)
 }

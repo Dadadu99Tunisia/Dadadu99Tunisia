@@ -5,7 +5,10 @@ import type { Transaction, TxCategory } from '../types'
 import { euro } from '../lib/money'
 import { longDate, monthKey, monthLabel, today } from '../lib/dates'
 import { livingSnapshot } from '../lib/engine'
-import { Bar, Badge, Card, ConfirmButton, Empty, Segmented, Stat } from '../components/ui'
+import { Bar, Badge, Card, Empty, Segmented, Stat } from '../components/ui'
+import { MonthSwitcher } from '../components/MonthSwitcher'
+import { useToast } from '../components/Toast'
+import { monthPosition, refForMonth } from '../lib/engine'
 import { ExpenseModal } from '../modals/ExpenseModal'
 import { ImportModal } from '../modals/ImportModal'
 
@@ -16,21 +19,27 @@ const KIND_ICON: Record<string, string> = {
 
 export function Expenses() {
   const { state, dispatch } = useStore()
+  const { notify } = useToast()
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [filter, setFilter] = useState<'vie' | 'tout'>('vie')
   const [category, setCategory] = useState<TxCategory | 'toutes'>('toutes')
 
-  const key = monthKey(today())
-  const living = livingSnapshot(state, today())
+  const now = today()
+  const current = monthKey(now)
+  const [month, setMonth] = useState(current)
+  const pos = monthPosition(month, now)
+  const key = month
+  const living = livingSnapshot(state, refForMonth(month, now))
 
   const rows = useMemo(() => {
     return [...state.transactions]
+      .filter((t) => monthKey(t.date) === month)
       .filter((t) => (filter === 'vie' ? t.kind === 'vie' : true))
       .filter((t) => (category === 'toutes' ? true : t.category === category))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
-  }, [state.transactions, filter, category])
+  }, [state.transactions, filter, category, month])
 
   const byMonth = useMemo(() => {
     const map = new Map<string, Transaction[]>()
@@ -47,8 +56,18 @@ export function Expenses() {
     return [...set] as TxCategory[]
   }, [state.transactions])
 
+  // Une suppression s'annule : on avance vite sans risquer de perdre une ligne.
+  function remove(t: Transaction) {
+    dispatch({ type: 'tx/remove', id: t.id })
+    notify(`${t.description} supprime.`, {
+      undo: () => dispatch({ type: 'tx/upsert', tx: t }),
+    })
+  }
+
   return (
     <div className="stack">
+      <MonthSwitcher value={month} onChange={setMonth} current={current} />
+
       <Card title={`Enveloppe de vie — ${monthLabel(key)}`}>
         <div className="row" style={{ alignItems: 'baseline', marginBottom: 12 }}>
           <span
@@ -95,12 +114,18 @@ export function Expenses() {
       </div>
 
       {byMonth.length === 0 ? (
-        <Card flush><Empty icon="&#129534;">Aucune depense enregistree.</Empty></Card>
+        <Card flush>
+          <Empty icon="&#129534;">
+            {pos.isFuture
+              ? "Mois a venir : rien d’enregistre pour l’instant."
+              : `Aucun mouvement sur ${monthLabel(month)}.`}
+          </Empty>
+        </Card>
       ) : (
         byMonth.map(([k, list]) => (
           <Card key={k} flush>
             <div className="month-head" style={{ borderTop: 0 }}>
-              {monthLabel(k)} &middot; {euro(list.reduce((a, t) => a + Math.abs(t.amount), 0))}
+              {list.length} mouvement(s) &middot; {euro(list.reduce((a, t) => a + Math.abs(t.amount), 0))}
             </div>
             <div className="list">
               {list.map((t) => (
@@ -123,9 +148,7 @@ export function Expenses() {
                     {t.kind === 'vie' && (
                       <button className="btn sm ghost" onClick={() => setEditing(t)}>Modifier</button>
                     )}
-                    <ConfirmButton onConfirm={() => dispatch({ type: 'tx/remove', id: t.id })}>
-                      Suppr.
-                    </ConfirmButton>
+                    <button className="btn sm danger" onClick={() => remove(t)}>Suppr.</button>
                   </div>
                 </div>
               ))}

@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import type { AppState, Debt, Income, Obligation, Transaction } from '../types'
+import type { AppState, Debt, Income, Obligation, Provision, Transaction } from '../types'
 import { emptyState, uid } from './storage'
 import {
   availability, analyseExpense, bankBalance, behaviourComparison, crisisState,
   debtTotal, expectedMonthlyIncome, healthReport, incomeCascade, livingSnapshot, monthlyCascade, obligationOccurrences,
   overdueObligations, project, splitPaymentImpact, suggestAllocation,
+  categoryBreakdown, emergencyFund, insights, monthPosition, provisionStatus,
+  provisionsMonthlyTotal, provisionsSaved, refForMonth, savedInMonth,
+  savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
 } from './engine'
-import { addDays, addMonths, startOfMonth } from './dates'
+import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
 
 /* Le 15 : un mois a mi-parcours, sans piege de fin de mois. */
@@ -688,5 +691,370 @@ describe('cascade du mois', () => {
     expect(c.living).toBe(1000)
     expect(c.afterLiving).toBe(3375)
     expect(c.real).toBe(3375)
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* Provisions, epargne, budget par categorie, meteo                     */
+/* ------------------------------------------------------------------ */
+
+function provision(p: Partial<Provision>): Provision {
+  return {
+    id: uid(), name: 'Taxe fonciere', emoji: '\u{1F3DB}️', amount: 1200,
+    dueDate: addMonths(REF, 6), recurrence: 'yearly', saved: 0, ...p,
+  }
+}
+
+describe('navigation dans les mois', () => {
+  it('observe chaque mois depuis le bon point', () => {
+    expect(refForMonth('2026-09', REF)).toBe(REF)            // mois en cours
+    expect(refForMonth('2026-08', REF)).toBe('2026-08-31')   // mois clos
+    expect(refForMonth('2026-11', REF)).toBe('2026-11-01')   // mois a venir
+  })
+
+  it('situe un mois par rapport a aujourd’hui', () => {
+    expect(monthPosition('2026-08', REF).isPast).toBe(true)
+    expect(monthPosition('2026-09', REF).isCurrent).toBe(true)
+    expect(monthPosition('2026-10', REF).isFuture).toBe(true)
+  })
+
+  it('se deplace de mois en mois, y compris en changeant d’annee', () => {
+    expect(shiftMonth('2026-09', 1)).toBe('2026-10')
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12')
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01')
+  })
+
+  it('un mois clos affiche ce qui a ete depense, pas un budget restant a vivre', () => {
+    const s = base()
+    s.settings.openingBalanceDate = '2026-01-01'
+    s.transactions = [tx({ amount: 820, date: '2026-08-12' })]
+    const l = livingSnapshot(s, refForMonth('2026-08', REF))
+    expect(l.spent).toBe(820)
+    expect(l.remaining).toBe(180)
+    expect(l.paceTarget).toBe(1000) // le mois est fini : tout etait "attendu"
+  })
+})
+
+describe('provisions', () => {
+  it('lisse une facture annuelle sur les mois restants', () => {
+    const p = provision({ amount: 1200, dueDate: addMonths(REF, 6), saved: 0 })
+    const st = provisionStatus(p, REF)
+    expect(st.monthsLeft).toBe(6)
+    expect(st.monthly).toBe(200)
+    expect(st.missing).toBe(1200)
+    expect(st.ready).toBe(false)
+  })
+
+  it('tient compte de ce qui est deja mis de cote', () => {
+    const st = provisionStatus(provision({ amount: 1200, saved: 600 }), REF)
+    expect(st.missing).toBe(600)
+    expect(st.monthly).toBe(100)
+    expect(st.covered).toBeCloseTo(0.5)
+  })
+
+  it('ne demande plus rien une fois la provision complete', () => {
+    const st = provisionStatus(provision({ amount: 1200, saved: 1200 }), REF)
+    expect(st.monthly).toBe(0)
+    expect(st.ready).toBe(true)
+    expect(st.covered).toBe(1)
+  })
+
+  it('ne divise jamais par zero mois', () => {
+    const st = provisionStatus(provision({ dueDate: REF }), REF)
+    expect(st.monthsLeft).toBe(1)
+    expect(st.monthly).toBe(1200)
+    expect(Number.isFinite(st.monthly)).toBe(true)
+  })
+
+  it('signale une echeance passee non couverte', () => {
+    const st = provisionStatus(provision({ dueDate: addDays(REF, -5), saved: 100 }), REF)
+    expect(st.late).toBe(true)
+  })
+
+  it('additionne l’effort mensuel de toutes les provisions', () => {
+    const s = base()
+    s.provisions = [
+      provision({ amount: 1200, dueDate: addMonths(REF, 6) }),  // 200
+      provision({ amount: 300, dueDate: addMonths(REF, 3) }),   // 100
+    ]
+    expect(provisionsMonthlyTotal(s, REF)).toBe(300)
+    expect(provisionsSaved(s)).toBe(0)
+  })
+
+  it('entre dans la cascade, juste avant le reste reel', () => {
+    const s = base()
+    s.incomes = [income({ amount: 5000, date: addDays(SOM, 1) })]
+    s.provisions = [provision({ amount: 1200, dueDate: addMonths(REF, 6) })]
+    const c = monthlyCascade(s, REF)
+    expect(c.afterDebts).toBe(4000)
+    expect(c.provisions).toBe(200)
+    expect(c.real).toBe(3800)
+  })
+})
+
+describe('epargne', () => {
+  it('mesure ce qui a ete mis de cote sur un mois', () => {
+    const s = base()
+    s.settings.openingBalanceDate = '2026-01-01'
+    s.transactions = [
+      tx({ amount: 300, kind: 'epargne', category: 'epargne', date: addDays(SOM, 3) }),
+      tx({ amount: 200, kind: 'epargne', category: 'epargne', date: addDays(SOM, 9) }),
+      tx({ amount: 80, date: addDays(SOM, 4) }),
+    ]
+    expect(savedInMonth(s, '2026-09')).toBe(500)
+  })
+
+  it('calcule le taux d’epargne du mois', () => {
+    const s = base()
+    s.incomes = [income({ amount: 4000, date: addDays(SOM, 1) })]
+    s.transactions = [tx({ amount: 800, kind: 'epargne', category: 'epargne', date: addDays(SOM, 5) })]
+    expect(savingsRate(s, '2026-09')).toBeCloseTo(0.2)
+  })
+
+  it('renvoie 0 plutot qu’une division par zero sur un mois sans revenu', () => {
+    expect(savingsRate(base(), '2026-09')).toBe(0)
+  })
+
+  it('moyenne le rythme sur les mois revolus', () => {
+    const s = base()
+    s.settings.openingBalanceDate = '2026-01-01'
+    s.transactions = [
+      tx({ amount: 300, kind: 'epargne', category: 'epargne', date: '2026-08-10' }),
+      tx({ amount: 600, kind: 'epargne', category: 'epargne', date: '2026-07-10' }),
+    ]
+    expect(savingsPace(s, 3, REF)).toBe(300) // (300 + 600 + 0) / 3
+  })
+
+  it('produit un historique continu, mois vides compris', () => {
+    const h = savingsHistory(base(), 6, REF)
+    expect(h).toHaveLength(6)
+    expect(h[h.length - 1].key).toBe('2026-09')
+    expect(h[0].key).toBe('2026-04')
+    expect(h.every((x) => x.amount === 0)).toBe(true)
+  })
+})
+
+describe('fonds de precaution', () => {
+  it('compte en mois de charges, pas en euros', () => {
+    const s = base()
+    s.obligations = [obligation({ amount: 500, recurrence: 'monthly' })]
+    s.debts = [debt({ remainingAmount: 6000, monthlyPayment: 145 })]
+    s.savingsGoals[0].current = 3290
+    const e = emergencyFund(s, REF)
+    expect(e.monthlyNeed).toBe(1645)   // 500 + 1000 + 145
+    expect(e.monthsCovered).toBeCloseTo(2)
+    expect(e.targetAmount).toBe(4935)  // 3 mois
+    expect(e.missing).toBe(1645)
+  })
+
+  it('integre l’effort de provision dans les charges a couvrir', () => {
+    const s = base()
+    s.provisions = [provision({ amount: 1200, dueDate: addMonths(REF, 6) })]
+    expect(emergencyFund(s, REF).monthlyNeed).toBe(1200) // 1000 de vie + 200
+  })
+
+  it('estime le delai au rythme actuel', () => {
+    const s = base()
+    s.settings.openingBalanceDate = '2026-01-01'
+    s.savingsGoals[0].current = 1000
+    s.transactions = [tx({ amount: 900, kind: 'epargne', category: 'epargne', date: '2026-08-05' })]
+    const e = emergencyFund(s, REF)
+    expect(e.pace).toBe(300)
+    expect(e.monthsToComplete).toBe(Math.ceil(e.missing / 300))
+  })
+
+  it('ne promet pas de delai sans rythme', () => {
+    expect(emergencyFund(base(), REF).monthsToComplete).toBeNull()
+  })
+
+  it('annonce un objectif atteint', () => {
+    const s = base()
+    s.savingsGoals[0].current = 99999
+    const e = emergencyFund(s, REF)
+    expect(e.missing).toBe(0)
+    expect(e.monthsToComplete).toBe(0)
+    expect(e.covered).toBe(1)
+  })
+})
+
+describe('repartition de l’enveloppe par categorie', () => {
+  it('compare le prevu au reel', () => {
+    const s = base()
+    s.settings.categoryBudgets = { alimentation: 300, restaurant: 100, shopping: 200 }
+    s.transactions = [
+      tx({ amount: 250, category: 'alimentation' }),
+      tx({ amount: 160, category: 'restaurant' }),
+    ]
+    const b = categoryBreakdown(s, '2026-09')
+    const alim = b.rows.find((r) => r.category === 'alimentation')!
+    const resto = b.rows.find((r) => r.category === 'restaurant')!
+    expect(alim.delta).toBe(50)
+    expect(resto.delta).toBe(-60)
+    expect(b.actualTotal).toBe(410)
+    expect(b.plannedTotal).toBe(600)
+    expect(b.unallocated).toBe(400)
+  })
+
+  it('fait apparaitre une categorie depensee sans enveloppe prevue', () => {
+    const s = base()
+    s.settings.categoryBudgets = { alimentation: 300 }
+    s.transactions = [tx({ amount: 90, category: 'loisirs' })]
+    const row = categoryBreakdown(s, '2026-09').rows.find((r) => r.category === 'loisirs')!
+    expect(row.planned).toBe(0)
+    expect(row.actual).toBe(90)
+    expect(row.delta).toBe(-90)
+  })
+
+  it('ne compte que l’enveloppe de vie', () => {
+    const s = base()
+    s.transactions = [
+      tx({ amount: 100, category: 'alimentation' }),
+      tx({ amount: 700, kind: 'obligation', category: 'logement' }),
+    ]
+    expect(categoryBreakdown(s, '2026-09').actualTotal).toBe(100)
+  })
+
+  it('tient un mois vide', () => {
+    const b = categoryBreakdown(base(), '2026-09')
+    expect(b.rows).toHaveLength(0)
+    expect(b.actualTotal).toBe(0)
+    expect(b.unallocated).toBe(1000)
+  })
+})
+
+describe('meteo du mois', () => {
+  it('voit large quand le rythme est calme', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 100 })]
+    const w = weather(s, REF)
+    expect(w.level).toBe('large')
+    expect(w.projectedEnd).toBeGreaterThan(0)
+  })
+
+  it('serre quand la marge projetee fond', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 470 })] // 470 au 15 -> ~940 projetes
+    expect(weather(s, REF).level).toBe('serre')
+  })
+
+  it('tendu quand le rythme fait exploser le mois', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 700 })] // ~1400 projetes
+    const w = weather(s, REF)
+    expect(w.level).toBe('tendu')
+    expect(w.projectedEnd).toBeLessThan(0)
+  })
+
+  it('depasse quand c’est deja fait', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 1200 })]
+    expect(weather(s, REF).level).toBe('depasse')
+  })
+})
+
+describe('faits marquants', () => {
+  it('ne renvoie jamais plus de trois cartes', () => {
+    const s = base()
+    s.settings.openingBalance = -100
+    s.obligations = [obligation({ dueDate: addDays(REF, -3) }), obligation({ dueDate: addDays(REF, 2) })]
+    s.settings.categoryBudgets = { shopping: 50 }
+    s.transactions = [tx({ amount: 400, category: 'shopping' })]
+    s.provisions = [provision({ dueDate: addDays(REF, -2), saved: 10 })]
+    const list = insights(s, REF)
+    expect(list.length).toBeLessThanOrEqual(3)
+    expect(list.length).toBeGreaterThan(0)
+  })
+
+  it('met le retard en premier', () => {
+    const s = base()
+    s.obligations = [obligation({ dueDate: addDays(REF, -4) })]
+    expect(insights(s, REF)[0].tone).toBe('critical')
+  })
+
+  it('felicite un rythme tenu', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 100 })]
+    expect(insights(s, REF).some((i) => i.tone === 'good')).toBe(true)
+  })
+
+  it('reste lisible sur un cockpit vide', () => {
+    const list = insights(base(), REF)
+    expect(list.every((i) => i.title.length > 0 && i.detail.length > 0)).toBe(true)
+  })
+})
+
+describe('formulation des echeances', () => {
+  it('compte en jours a court terme', () => {
+    expect(relativeDue(addDays(REF, 3), REF)).toBe('dans 3 jours')
+    expect(relativeDue(REF, REF)).toBe('aujourd’hui')
+    expect(relativeDue(addDays(REF, 1), REF)).toBe('demain')
+  })
+
+  it('bascule en mois au-dela de deux mois', () => {
+    expect(relativeDue(addDays(REF, 153), REF)).toBe('dans 5 mois')
+    expect(relativeDue(addDays(REF, 90), REF)).toBe('dans 3 mois')
+  })
+
+  it('exprime les annees rondes', () => {
+    expect(relativeDue(addDays(REF, 365), REF)).toBe('dans 1 an')
+  })
+
+  it('reste explicite sur un retard', () => {
+    expect(relativeDue(addDays(REF, -5), REF)).toBe('en retard de 5 jours')
+    expect(relativeDue(addDays(REF, -120), REF)).toBe('en retard de 4 mois')
+  })
+})
+
+describe('lecture d’un mois clos ou a venir', () => {
+  const AOUT = refForMonth('2026-08', REF)
+
+  function withAugust(): AppState {
+    const s = base()
+    s.settings.openingBalanceDate = '2026-01-01'
+    s.transactions = [tx({ amount: 640, date: '2026-08-12' })]
+    return s
+  }
+
+  it('raconte un mois termine au lieu de le projeter', () => {
+    const w = weather(withAugust(), AOUT, REF)
+    expect(w.title).toBe('Mois termine')
+    expect(w.projectedEnd).toBe(360) // ce qui restait vraiment
+  })
+
+  it('signale un mois termine en depassement', () => {
+    const s = base()
+    s.settings.openingBalanceDate = '2026-01-01'
+    s.transactions = [tx({ amount: 1300, date: '2026-08-12' })]
+    const w = weather(s, AOUT, REF)
+    expect(w.level).toBe('depasse')
+    expect(w.title).toContain('depassement')
+  })
+
+  it('ne parle jamais de jours restants sur un mois clos', () => {
+    const list = insights(withAugust(), AOUT, REF)
+    expect(list.some((i) => i.id === 'closed')).toBe(true)
+    expect(list.some((i) => /jours restants/.test(i.detail))).toBe(false)
+    expect(list.some((i) => i.id === 'end')).toBe(false)
+  })
+
+  it('n’annonce pas d’echeances a 7 jours sur un mois passe', () => {
+    const s = withAugust()
+    s.obligations = [obligation({ dueDate: addDays(REF, 3) })]
+    expect(insights(s, AOUT, REF).some((i) => i.id === 'soon')).toBe(false)
+  })
+
+  it('presente un mois a venir comme entier', () => {
+    const w = weather(base(), refForMonth('2026-11', REF), REF)
+    expect(w.title).toBe('Mois a venir')
+    expect(w.projectedEnd).toBe(1000)
+    expect(w.pace).toBe(0)
+    expect(insights(base(), refForMonth('2026-11', REF), REF).some((i) => i.id === 'future')).toBe(true)
+  })
+
+  it('garde le comportement normal sur le mois en cours', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 100 })]
+    expect(weather(s, REF, REF).title).toBe('Tu as de la marge')
+    expect(insights(s, REF, REF).some((i) => i.id === 'end')).toBe(true)
   })
 })
