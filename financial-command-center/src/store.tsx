@@ -1,0 +1,211 @@
+import { createContext, useContext, useEffect, useMemo, useReducer } from 'react'
+import type { ReactNode } from 'react'
+import type {
+  AppState, Debt, Income, Obligation, SavingsGoal, Settings, Transaction,
+} from './types'
+import { load, save, uid, emptyState } from './lib/storage'
+import { addMonths, today } from './lib/dates'
+import { round2 } from './lib/money'
+
+type Action =
+  | { type: 'replace'; state: AppState }
+  | { type: 'settings'; patch: Partial<Settings> }
+  | { type: 'income/upsert'; income: Income }
+  | { type: 'income/remove'; id: string }
+  | { type: 'obligation/upsert'; obligation: Obligation }
+  | { type: 'obligation/remove'; id: string }
+  | { type: 'obligation/pay'; id: string; date: string }
+  | { type: 'obligation/unpay'; id: string }
+  | { type: 'debt/upsert'; debt: Debt }
+  | { type: 'debt/remove'; id: string }
+  | { type: 'debt/pay'; id: string; amount: number; date: string }
+  | { type: 'tx/upsert'; tx: Transaction }
+  | { type: 'tx/remove'; id: string }
+  | { type: 'goal/upsert'; goal: SavingsGoal }
+  | { type: 'goal/remove'; id: string }
+  | { type: 'goal/deposit'; id: string; amount: number; date: string }
+
+function reducer(state: AppState, action: Action): AppState {
+  switch (action.type) {
+    case 'replace':
+      return action.state
+
+    case 'settings':
+      return { ...state, settings: { ...state.settings, ...action.patch } }
+
+    case 'income/upsert': {
+      const exists = state.incomes.some((i) => i.id === action.income.id)
+      return {
+        ...state,
+        incomes: exists
+          ? state.incomes.map((i) => (i.id === action.income.id ? action.income : i))
+          : [...state.incomes, action.income],
+      }
+    }
+    case 'income/remove':
+      return { ...state, incomes: state.incomes.filter((i) => i.id !== action.id) }
+
+    case 'obligation/upsert': {
+      const exists = state.obligations.some((o) => o.id === action.obligation.id)
+      return {
+        ...state,
+        obligations: exists
+          ? state.obligations.map((o) => (o.id === action.obligation.id ? action.obligation : o))
+          : [...state.obligations, action.obligation],
+      }
+    }
+    case 'obligation/remove':
+      return { ...state, obligations: state.obligations.filter((o) => o.id !== action.id) }
+
+    case 'obligation/pay': {
+      const target = state.obligations.find((o) => o.id === action.id)
+      if (!target || target.status === 'paye') return state
+      const paid: Obligation = { ...target, status: 'paye', paidAt: action.date }
+      // Une obligation recurrente reglee reapparait a l'echeance suivante :
+      // c'est ce qui rend le "a reserver" honnete d'un mois sur l'autre.
+      const step =
+        target.recurrence === 'monthly' ? 1
+          : target.recurrence === 'quarterly' ? 3
+            : target.recurrence === 'yearly' ? 12 : 0
+      const next: Obligation[] = step
+        ? [{ ...target, id: uid(), dueDate: addMonths(target.dueDate, step), status: 'a_payer', paidAt: undefined }]
+        : []
+      const tx: Transaction = {
+        id: uid(), date: action.date, description: target.name, category: 'autre',
+        amount: target.amount, kind: 'obligation', obligationId: target.id,
+      }
+      return {
+        ...state,
+        obligations: [...state.obligations.map((o) => (o.id === action.id ? paid : o)), ...next],
+        transactions: [...state.transactions, tx],
+      }
+    }
+
+    case 'obligation/unpay':
+      return {
+        ...state,
+        obligations: state.obligations.map((o) =>
+          o.id === action.id ? { ...o, status: 'a_payer', paidAt: undefined } : o,
+        ),
+        transactions: state.transactions.filter((t) => t.obligationId !== action.id),
+      }
+
+    case 'debt/upsert': {
+      const exists = state.debts.some((d) => d.id === action.debt.id)
+      const debt = {
+        ...action.debt,
+        status: action.debt.remainingAmount <= 0 ? ('paid' as const) : ('active' as const),
+      }
+      return {
+        ...state,
+        debts: exists ? state.debts.map((d) => (d.id === debt.id ? debt : d)) : [...state.debts, debt],
+      }
+    }
+    case 'debt/remove':
+      return { ...state, debts: state.debts.filter((d) => d.id !== action.id) }
+
+    case 'debt/pay': {
+      const target = state.debts.find((d) => d.id === action.id)
+      if (!target) return state
+      const pay = round2(Math.min(Math.max(0, action.amount), target.remainingAmount))
+      if (pay <= 0) return state
+      const left = round2(target.remainingAmount - pay)
+      const updated: Debt = {
+        ...target,
+        remainingAmount: left,
+        installmentsPaid: (target.installmentsPaid ?? 0) + 1,
+        status: left <= 0 ? 'paid' : 'active',
+        paidAt: left <= 0 ? action.date : target.paidAt,
+      }
+      const tx: Transaction = {
+        id: uid(), date: action.date, description: `Remboursement ${target.name}`,
+        category: 'dette', amount: pay, kind: 'dette', debtId: target.id,
+      }
+      return {
+        ...state,
+        debts: state.debts.map((d) => (d.id === action.id ? updated : d)),
+        transactions: [...state.transactions, tx],
+      }
+    }
+
+    case 'tx/upsert': {
+      const exists = state.transactions.some((t) => t.id === action.tx.id)
+      return {
+        ...state,
+        transactions: exists
+          ? state.transactions.map((t) => (t.id === action.tx.id ? action.tx : t))
+          : [...state.transactions, action.tx],
+      }
+    }
+    case 'tx/remove':
+      return { ...state, transactions: state.transactions.filter((t) => t.id !== action.id) }
+
+    case 'goal/upsert': {
+      const exists = state.savingsGoals.some((g) => g.id === action.goal.id)
+      return {
+        ...state,
+        savingsGoals: exists
+          ? state.savingsGoals.map((g) => (g.id === action.goal.id ? action.goal : g))
+          : [...state.savingsGoals, action.goal],
+      }
+    }
+    case 'goal/remove':
+      return { ...state, savingsGoals: state.savingsGoals.filter((g) => g.id !== action.id) }
+
+    case 'goal/deposit': {
+      const goal = state.savingsGoals.find((g) => g.id === action.id)
+      if (!goal || action.amount === 0) return state
+      const tx: Transaction = {
+        id: uid(), date: action.date,
+        description: action.amount > 0 ? `Epargne — ${goal.name}` : `Retrait epargne — ${goal.name}`,
+        category: 'epargne', amount: action.amount, kind: action.amount > 0 ? 'epargne' : 'ajustement',
+        savingsGoalId: goal.id,
+      }
+      return {
+        ...state,
+        savingsGoals: state.savingsGoals.map((g) =>
+          g.id === action.id ? { ...g, current: round2(Math.max(0, g.current + action.amount)) } : g,
+        ),
+        transactions: [...state.transactions, tx],
+      }
+    }
+
+    default:
+      return state
+  }
+}
+
+interface Ctx {
+  state: AppState
+  dispatch: (a: Action) => void
+  reset: () => void
+}
+
+const StoreContext = createContext<Ctx | null>(null)
+
+export function StoreProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, undefined, load)
+
+  useEffect(() => {
+    save(state)
+  }, [state])
+
+  const value = useMemo<Ctx>(
+    () => ({
+      state,
+      dispatch,
+      reset: () => dispatch({ type: 'replace', state: { ...emptyState(), settings: { ...emptyState().settings, openingBalanceDate: today() } } }),
+    }),
+    [state],
+  )
+
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+}
+
+export function useStore(): Ctx {
+  const ctx = useContext(StoreContext)
+  if (!ctx) throw new Error('useStore doit etre utilise dans StoreProvider')
+  return ctx
+}
+
+export type { Action }

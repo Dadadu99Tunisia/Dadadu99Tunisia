@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+*.local
+# Donnees personnelles : ne jamais committer un export du cockpit
+donnees/
+*.fcc.json
+*.tsbuildinfo
