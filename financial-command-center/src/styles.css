@@ -1422,3 +1422,62 @@ select.cat-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var
 
 /* Un nom propre garde son orthographe : seule la categorie se capitalise. */
 .casc-step .tree .n.raw { text-transform: none; }
+
+/* ------------------------------------------------------------------ *
+ * Suivi et leviers
+ * ------------------------------------------------------------------ */
+
+.track {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.list > .track:first-child { border-top: 0; }
+.track .body { flex: 1; min-width: 0; }
+.track .head { display: flex; align-items: baseline; gap: 8px; }
+.track .head .n {
+  font-size: 14.5px; font-weight: 620;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.track .head .spacer { flex: 1; }
+.track .head .v {
+  font-size: 14.5px; font-weight: 700; letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.track .line-bar { display: flex; align-items: center; gap: 9px; margin-top: 8px; }
+.track .line-bar .bar { flex: 1; height: 8px; }
+.track .line-bar .p {
+  font-size: 11.5px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.track .d { font-size: 12.5px; color: var(--text-soft); margin-top: 6px; line-height: 1.45; }
+
+.levers { display: flex; flex-direction: column; gap: 10px; }
+.lever {
+  display: flex;
+  gap: 12px;
+  padding: 14px 15px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+.lever.critical { background: var(--dettes-soft); }
+.lever.warn     { background: var(--obligations-soft); }
+.lever.good     { background: var(--vie-soft); }
+.lever.info     { background: var(--epargne-soft); }
+.lever .ico { font-size: 18px; line-height: 1.25; }
+.lever .body { flex: 1; min-width: 0; }
+.lever .t { font-size: 14.5px; font-weight: 680; letter-spacing: -.015em; }
+.lever .why { font-size: 12.5px; color: var(--text-soft); margin: 4px 0 0; line-height: 1.5; }
+.lever .foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.lever .foot .spacer { flex: 1; }
+.lever .gain { font-size: 12.5px; font-weight: 660; font-variant-numeric: tabular-nums; }
+.lever .effort {
+  font-size: 11px; font-weight: 620; letter-spacing: .02em;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-1); color: var(--text-muted); white-space: nowrap;
+}
+@media (max-width: 660px) {
+  .lever .foot .btn { width: 100%; }
+}

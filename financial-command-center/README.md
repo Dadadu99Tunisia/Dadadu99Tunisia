@@ -45,7 +45,7 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 
 | Module | Role |
 |---|---|
-| **Tableau de bord** | Meteo du mois, faits marquants, solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade |
+| **Tableau de bord** | Meteo du mois, faits marquants, **suivi** et **solutions chiffrees**, solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade |
 | **Comptes** | Un solde par compte, ce qui y est deja engage, virements internes |
 | **Budget type** | Repartition prevue de l'enveloppe de vie par categorie, comparee au reel |
 | **Echeances** | Demarches fiscales et administratives datees, avec leur enjeu chiffre |
@@ -59,6 +59,34 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 | **Sante** | Score sur 100, six facteurs objectifs, chacun explique |
 | **Habitudes** | Depenses du mois, panier moyen, comparaison au mois precedent |
 | **Reglages** | Budget, alertes, theme, export / import, effacement |
+
+### Suivi et solutions
+
+Un tableau de bord qui ne montre que l'instant present donne l'impression que
+rien ne bouge, meme quand tout bouge. Deux blocs y repondent, en tete de page
+et aussi en mode stabilisation.
+
+**Ou j'en suis** mesure le mouvement : dettes deja remboursees sur le total de
+depart, ce qui est rembourse ce mois compare aux mensualites prevues, la
+prochaine dette soldee et sa date, l'avancement de l'objectif principal, et le
+nombre de mois clos tenus dans l'enveloppe. Un mois sans aucune depense
+enregistree n'est pas un mois reussi : c'est un mois non suivi, et il arrete le
+compte au lieu de le gonfler.
+
+**Ce qui debloque le plus** propose des leviers calcules sur les donnees
+reelles, tries par ce qu'ils changent : renflouer un compte a decouvert depuis
+un compte crediteur, traiter ce qui est deja echu, l'ecart structurel entre le
+revenu attendu et les engagements, la dette au taux le plus eleve, les
+mensualites qui se liberent a chaque credit solde, l'enveloppe de vie
+confrontee aux trois derniers mois suivis, les prelevements recurrents, les
+provisions, le fonds de precaution, et le financement de l'objectif principal
+par les mensualites liberees. Chaque levier dit pourquoi il est vrai, ce qu'il
+rapporte et ou agir.
+
+Deux regles evitent les faux leviers : une dette qui tient en un seul paiement
+ne libere aucune mensualite (elle ne revenait pas tous les mois), et un
+virement de quelques euros n'est pas propose — il prendrait la place d'un vrai
+levier. Rien n'est invente : un chiffre non calculable n'est pas annonce.
 
 ### « Puis-je me le permettre ? »
 
@@ -237,7 +265,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 180 tests : moteur de calcul, stockage, import bancaire
+npm test           # 195 tests : moteur de calcul, stockage, import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de
@@ -255,7 +283,7 @@ src/
     engine.test.ts    cas limites : mois sans revenu, depassement, dette
                       partielle, recurrences, fractionnes, projection,
                       provisions, echeances, comptes multiples, virements,
-                      mois clos, meteo
+                      mois clos, meteo, suivi, leviers
     bankImport.ts     lecture des releves CSV / OFX / QIF, categorisation,
                       detection des doublons
     bankImport.test.ts formats reels des banques francaises
@@ -264,7 +292,7 @@ src/
                       amorce `__COCKPIT_SEED__`
     dates.ts money.ts utilitaires
   components/         primitives d'interface, graphiques, cascade, toasts,
-                      selecteur de mois
+                      selecteur de mois, suivi et leviers
   views/              un fichier par ecran
   modals/             saisie et analyse d'impact
 ```

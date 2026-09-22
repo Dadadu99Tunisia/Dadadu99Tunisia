@@ -4,12 +4,15 @@ import {
   availability, crisisState, healthReport, livingSnapshot, monthlyCascade,
   obligationsDueWithin, overdueObligations, priorityActions, activeDebts, upcomingIncomes,
   insights, monthPosition, refForMonth, weather, accountBalances,
+  progressReport, solutions,
 } from '../lib/engine'
 import { euro, ratio } from '../lib/money'
 import { longDate, monthLabel, relativeDue, today } from '../lib/dates'
 import { Bar, Badge, Callout, Card, Empty, Stat } from '../components/ui'
 import { CascadeView } from '../components/Cascade'
 import { MonthSwitcher } from '../components/MonthSwitcher'
+import { ProgressCard, SolutionsCard } from '../components/Plan'
+import { CRISIS_HIDDEN } from '../Nav'
 import type { View } from '../Nav'
 
 export function Dashboard({
@@ -41,6 +44,10 @@ export function Dashboard({
   const trouble = balances.filter((b) => b.negative)
   const meteo = useMemo(() => weather(state, ref, now), [state, ref, now])
   const facts = useMemo(() => insights(state, ref, now), [state, ref, now])
+  // Suivi et leviers se lisent a aujourd'hui : ils parlent de la suite, pas
+  // du mois qu'on consulte.
+  const progress = useMemo(() => progressReport(state, now), [state, now])
+  const levers = useMemo(() => solutions(state, now), [state, now])
 
   const empty =
     state.incomes.length === 0 &&
@@ -86,6 +93,10 @@ export function Dashboard({
             {priorityActions(state, ref).map((a, i) => <li key={i}>{a}</li>)}
           </ol>
         </Card>
+
+        <SolutionsCard list={levers} go={go} hidden={CRISIS_HIDDEN} limit={2} />
+
+        <ProgressCard report={progress} onDetail={() => go('dettes')} />
 
         {overdue.length > 0 && (
           <Card title="Obligations urgentes" flush action={<button className="btn sm ghost" onClick={() => go('obligations')}>Tout voir</button>}>
@@ -194,6 +205,10 @@ export function Dashboard({
           </div>
         </Card>
       )}
+
+      <ProgressCard report={progress} onDetail={() => go('dettes')} />
+
+      <SolutionsCard list={levers} go={go} />
 
       <div>
         {/* Ces tuiles decrivent l'instant present, pas le mois consulte. */}

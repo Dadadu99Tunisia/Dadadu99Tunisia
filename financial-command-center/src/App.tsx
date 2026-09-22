@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { StoreProvider, useStore } from './store'
-import { Nav } from './Nav'
+import { CRISIS_HIDDEN, Nav } from './Nav'
 import type { View } from './Nav'
 import { Dashboard } from './views/Dashboard'
 import { Incomes } from './views/Incomes'
@@ -24,12 +24,6 @@ import { crisisState } from './lib/engine'
 import { today } from './lib/dates'
 
 const THEME_KEY = 'cockpit-financier/theme'
-/**
- * Masques en mode stabilisation : on garde l'essentiel sous les yeux.
- * L'epargne reste visible — elle porte les provisions et le fonds de
- * precaution, qui comptent d'autant plus quand la situation est tendue.
- */
-const CRISIS_HIDDEN: View[] = ['habitudes', 'projection', 'budget']
 
 const TITLES: Record<View, string> = {
   dashboard: 'Tableau de bord',

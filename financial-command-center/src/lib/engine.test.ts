@@ -10,6 +10,7 @@ import {
   savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
   deadlineStakes, deadlinesDueWithin, openDeadlines, overdueDeadlines, yearlyImpact,
   accountBalance, accountBalances, accountsInTrouble, debtPayoff, nextDebtCleared,
+  progressReport, solutions, budgetStreak, freedMonthly,
 } from './engine'
 import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
@@ -1426,5 +1427,146 @@ describe('jeu de donnees initial fourni par la page', () => {
     g.__COCKPIT_SEED__ = 'pas un objet'
     expect(() => load()).not.toThrow()
     expect(load().incomes).toHaveLength(0)
+  })
+})
+
+describe('suivi', () => {
+  it('mesure le chemin deja parcouru sur les dettes', () => {
+    const s = base()
+    s.debts = [debt({ initialAmount: 1000, remainingAmount: 400 })]
+    const p = progressReport(s, REF)
+    expect(p.debtInitial).toBe(1000)
+    expect(p.debtPaid).toBe(600)
+    expect(p.metrics.find((m) => m.key === 'dettes')!.pct).toBeCloseTo(0.6)
+  })
+
+  it('compare le rembourse du mois aux mensualites prevues', () => {
+    const s = base()
+    s.debts = [debt({ monthlyPayment: 100, remainingAmount: 1000 })]
+    s.transactions = [tx({ amount: 100, kind: 'dette', category: 'dette' })]
+    const m = progressReport(s, REF).metrics.find((x) => x.key === 'mois')!
+    expect(m.value).toContain('100')
+    expect(m.tone).toBe('good')
+  })
+
+  it('compte les mois clos tenus dans l’enveloppe et s’arrete au depassement', () => {
+    const s = base()
+    s.transactions = [
+      tx({ amount: 300, date: '2026-08-10' }),
+      tx({ amount: 200, date: '2026-07-10' }),
+      tx({ amount: 1500, date: '2026-06-10' }),
+    ]
+    expect(budgetStreak(s, 12, REF)).toBe(2)
+  })
+
+  it('ne compte pas un mois sans depense suivie comme un mois reussi', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 300, date: '2026-07-10' })]
+    expect(budgetStreak(s, 12, REF)).toBe(0)
+  })
+
+  it('annonce l’objectif sans date tant que rien n’est epargne', () => {
+    const s = base()
+    const m = progressReport(s, REF).metrics.find((x) => x.key === 'objectif')!
+    expect(m.detail).toContain('aucune date')
+    expect(m.tone).toBe('warn')
+  })
+
+  it('additionne les mensualites qui se liberent dans l’annee', () => {
+    const s = base()
+    s.debts = [
+      debt({ name: 'A', monthlyPayment: 100, remainingAmount: 300, endDate: '2026-12-05' }),
+      debt({ name: 'B', monthlyPayment: 50, remainingAmount: 5000, endDate: '2029-01-05' }),
+    ]
+    const f = freedMonthly(s, 12, REF)
+    expect(f.total).toBe(100)
+    expect(f.debts.map((d) => d.debt.name)).toEqual(['A'])
+  })
+})
+
+describe('solutions', () => {
+  it('fait passer un retard avant toute optimisation', () => {
+    const s = base()
+    s.obligations = [obligation({ amount: 625, dueDate: addDays(REF, -10) })]
+    s.debts = [debt({ rate: 0.19 })]
+    expect(solutions(s, REF)[0].id).toBe('retard')
+  })
+
+  it('propose de renflouer le compte a decouvert depuis celui qui est en positif', () => {
+    const s = base()
+    s.accounts.push({
+      id: 'b', name: 'Livret', emoji: '\u{1F3E6}', kind: 'perso',
+      openingBalance: 800, openingBalanceDate: SOM, overdraftLimit: 0,
+    })
+    setOpening(s, -300)
+    const sol = solutions(s, REF).find((x) => x.id === 'virement')!
+    expect(sol.gain).toContain('300')
+    expect(sol.target).toBe('comptes')
+  })
+
+  it('designe le taux le plus eleve, pas le plus gros encours', () => {
+    const s = base()
+    const cher = debt({ name: 'Renouvelable', remainingAmount: 2000, rate: 0.1572 })
+    const gros = debt({ name: 'Pret auto', remainingAmount: 12000, rate: 0.032 })
+    s.debts = [gros, cher]
+    const sol = solutions(s, REF).find((x) => x.id.startsWith('avalanche'))!
+    expect(sol.title).toContain('Renouvelable')
+    expect(sol.gain).toContain('314,40')
+  })
+
+  it('dit franchement quand le revenu ne couvre pas les engagements', () => {
+    const s = base()
+    s.settings.expectedMonthlyIncome = 2000
+    s.obligations = [obligation({ amount: 1500, recurrence: 'monthly', dueDate: addDays(REF, 5) })]
+    s.debts = [debt({ monthlyPayment: 800, remainingAmount: 8000 })]
+    const sol = solutions(s, REF).find((x) => x.id === 'ecart')!
+    expect(sol.gainMonthly).toBe(1300)
+    expect(sol.tone).toBe('critical')
+  })
+
+  it('annonce ce qui reste quand le revenu couvre tout', () => {
+    const s = base()
+    s.settings.expectedMonthlyIncome = 4000
+    s.obligations = [obligation({ amount: 1000, recurrence: 'monthly', dueDate: addDays(REF, 5) })]
+    s.debts = [debt({ monthlyPayment: 500, remainingAmount: 5000 })]
+    const sol = solutions(s, REF).find((x) => x.id === 'reste')!
+    expect(sol.gainMonthly).toBe(1500)
+  })
+
+  it('ne propose de baisser l’enveloppe que si plusieurs mois suivis le montrent', () => {
+    const s = base()
+    s.transactions = [tx({ amount: 400, date: '2026-08-10' })]
+    expect(solutions(s, REF).find((x) => x.id === 'enveloppe-baisse')).toBeUndefined()
+    s.transactions.push(tx({ amount: 400, date: '2026-07-10' }))
+    const sol = solutions(s, REF).find((x) => x.id === 'enveloppe-baisse')!
+    expect(sol.gainMonthly).toBe(600)
+  })
+
+  it('chiffre l’objectif a partir des mensualites liberees', () => {
+    const s = base()
+    s.savingsGoals = [{ id: 'g', name: 'Voiture', emoji: '\u{1F697}', target: 12000, current: 0 }]
+    s.debts = [debt({ name: 'A', monthlyPayment: 500, remainingAmount: 1500, endDate: '2026-12-05' })]
+    const sol = solutions(s, REF).find((x) => x.id === 'objectif')!
+    expect(sol.gain).toContain('24 mois')
+  })
+})
+
+describe('leviers : garde-fous', () => {
+  it('ne compte pas comme liberee une dette qui tient en un seul paiement', () => {
+    const s = base()
+    s.debts = [debt({ name: 'Avance', monthlyPayment: 713, remainingAmount: 713 })]
+    expect(freedMonthly(s, 12, REF).total).toBe(0)
+    const m = progressReport(s, REF).metrics.find((x) => x.key === 'prochaine')!
+    expect(m.detail).not.toContain('se liberent')
+  })
+
+  it('ne propose pas un virement de quelques euros', () => {
+    const s = base()
+    s.accounts.push({
+      id: 'b', name: 'Livret', emoji: '\u{1F3E6}', kind: 'perso',
+      openingBalance: 2, openingBalanceDate: SOM, overdraftLimit: 0,
+    })
+    setOpening(s, -400)
+    expect(solutions(s, REF).find((x) => x.id === 'virement')).toBeUndefined()
   })
 })

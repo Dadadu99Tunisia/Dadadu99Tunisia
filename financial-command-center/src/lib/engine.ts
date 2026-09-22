@@ -8,11 +8,12 @@ import type {
   ISODate,
   Obligation,
   Provision,
+  SavingsGoal,
   Transaction,
   TxCategory,
 } from '../types'
 import { TX_CATEGORY_LABELS } from '../types'
-import { round2, ratio, clamp, euro } from './money'
+import { round2, ratio, clamp, euro, percent } from './money'
 import {
   addDays,
   addMonths,
@@ -1655,4 +1656,489 @@ export function nextDebtCleared(s: AppState, ref: ISODate = todayISO()): Debt | 
     .map((d) => ({ d, p: debtPayoff(d, ref) }))
     .filter((x) => x.p.date !== null)
     .sort((a, b) => a.p.date!.localeCompare(b.p.date!))[0]?.d
+}
+
+/* ------------------------------------------------------------------ */
+/* Suivi : ce qui bouge d'un mois sur l'autre                           */
+/* ------------------------------------------------------------------ */
+
+/** Ce qui est reellement sorti en remboursement de dettes sur un mois. */
+export function debtRepaidInMonth(s: AppState, key: string): number {
+  return round2(
+    s.transactions
+      .filter((t) => t.kind === 'dette' && monthKey(t.date) === key)
+      .reduce((a, t) => a + Math.abs(t.amount), 0),
+  )
+}
+
+/** Historique mensuel des remboursements, pour voir la pente. */
+export function debtHistory(s: AppState, months = 6, ref: ISODate = todayISO()) {
+  const current = monthKey(ref)
+  const out: { key: string; amount: number }[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const key = shiftMonth(current, -i)
+    out.push({ key, amount: debtRepaidInMonth(s, key) })
+  }
+  return out
+}
+
+/**
+ * Mois clos consecutifs tenus dans l'enveloppe de vie.
+ * Un mois sans aucune depense enregistree n'est pas un mois reussi : c'est un
+ * mois non suivi. On arrete le compte plutot que de s'en feliciter.
+ */
+export function budgetStreak(s: AppState, months = 12, ref: ISODate = todayISO()): number {
+  let streak = 0
+  for (let i = 1; i <= months; i++) {
+    const key = shiftMonth(monthKey(ref), -i)
+    const l = livingSnapshot(s, refForMonth(key, ref))
+    if (l.count === 0 || l.remaining < 0) break
+    streak++
+  }
+  return streak
+}
+
+/** L'objectif qui porte le projet : le plus gros encore ouvert. */
+export function mainSavingsGoal(s: AppState): SavingsGoal | undefined {
+  return s.savingsGoals
+    .filter((g) => !g.system && g.target > 0 && g.current < g.target)
+    .sort((a, b) => b.target - a.target)[0]
+}
+
+export interface FreedMonthly {
+  /** Somme des mensualites qui se liberent dans la fenetre. */
+  total: number
+  debts: { debt: Debt; date: ISODate; monthly: number }[]
+}
+
+/**
+ * Les mensualites qui se liberent d'ici `months` mois.
+ * C'est la marge de manoeuvre qui arrive sans rien changer d'autre : une dette
+ * soldee ne fait pas disparaitre sa mensualite, elle la rend disponible.
+ */
+export function freedMonthly(s: AppState, months = 12, ref: ISODate = todayISO()): FreedMonthly {
+  const limit = addMonths(ref, months)
+  const rows = activeDebts(s)
+    .map((debt) => ({ debt, payoff: debtPayoff(debt, ref) }))
+    // Une dette qui tient en un seul paiement ne libere rien : on la regle une
+    // fois, elle ne revenait pas tous les mois.
+    .filter((x) => x.payoff.date !== null && x.payoff.date! <= limit
+      && x.debt.monthlyPayment > 0 && x.debt.remainingAmount > x.debt.monthlyPayment)
+    .map((x) => ({ debt: x.debt, date: x.payoff.date!, monthly: x.debt.monthlyPayment }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+  return { total: round2(rows.reduce((a, r) => a + r.monthly, 0)), debts: rows }
+}
+
+export interface ProgressMetric {
+  key: string
+  icon: string
+  label: string
+  value: string
+  detail: string
+  /** Avancement 0..1, ou null si la mesure n'a pas de cible. */
+  pct: number | null
+  tone: 'good' | 'info' | 'warn'
+}
+
+export interface ProgressReport {
+  metrics: ProgressMetric[]
+  debtHistory: { key: string; amount: number }[]
+  streak: number
+  debtPaid: number
+  debtInitial: number
+  freedWithinYear: number
+}
+
+/**
+ * Le suivi : non pas ou j'en suis aujourd'hui, mais dans quel sens ca va.
+ * Un tableau de bord qui ne montre que l'instant present donne l'impression
+ * que rien ne bouge, meme quand tout bouge.
+ */
+export function progressReport(s: AppState, ref: ISODate = todayISO()): ProgressReport {
+  const key = monthKey(ref)
+  const metrics: ProgressMetric[] = []
+  const initial = debtInitialTotal(s)
+  const remaining = debtTotal(s)
+  const paid = round2(Math.max(0, initial - remaining))
+  const freed = freedMonthly(s, 12, ref)
+
+  if (initial > 0) {
+    metrics.push({
+      key: 'dettes',
+      icon: '\u{1F4C9}',
+      label: 'Dettes remboursees',
+      value: euro(paid),
+      detail: `sur ${euro(initial)} au depart — reste ${euro(remaining)}`,
+      pct: ratio(paid, initial),
+      tone: paid > 0 ? 'good' : 'info',
+    })
+  }
+
+  const repaid = debtRepaidInMonth(s, key)
+  const planned = round2(
+    activeDebts(s).reduce((a, d) => a + Math.min(d.remainingAmount, d.monthlyPayment || 0), 0),
+  )
+  if (planned > 0 || repaid > 0) {
+    metrics.push({
+      key: 'mois',
+      icon: '\u{1F5D3}️',
+      label: 'Rembourse ce mois',
+      value: euro(repaid),
+      detail: planned > 0
+        ? `sur ${euro(planned)} de mensualites prevues`
+        : 'aucune mensualite prevue ce mois',
+      pct: planned > 0 ? ratio(repaid, planned) : null,
+      tone: planned > 0 && repaid >= planned ? 'good' : 'info',
+    })
+  }
+
+  const next = nextDebtCleared(s, ref)
+  if (next) {
+    const payoff = debtPayoff(next, ref)
+    // Meme regle que `freedMonthly` : un dernier paiement ne libere pas une
+    // mensualite, il solde un reste.
+    const frees = next.monthlyPayment > 0 && next.remainingAmount > next.monthlyPayment
+      ? ` — ${euro(next.monthlyPayment)} par mois se liberent`
+      : ''
+    metrics.push({
+      key: 'prochaine',
+      icon: '\u{1F3AF}',
+      label: 'Prochaine dette soldee',
+      value: next.name,
+      detail: payoff.date ? `${longDate(payoff.date)}${frees}` : 'date encore inconnue',
+      pct: next.initialAmount > 0
+        ? ratio(next.initialAmount - next.remainingAmount, next.initialAmount)
+        : null,
+      tone: 'good',
+    })
+  }
+
+  const goal = mainSavingsGoal(s)
+  if (goal) {
+    const pace = savingsPace(s, 3, ref)
+    const missing = round2(Math.max(0, goal.target - goal.current))
+    metrics.push({
+      key: 'objectif',
+      icon: goal.emoji || '⭐',
+      label: goal.name,
+      value: `${euro(goal.current)} / ${euro(goal.target)}`,
+      detail: pace > 0
+        ? `${euro(missing)} a trouver — environ ${Math.ceil(missing / pace)} mois a ${euro(pace)} par mois`
+        : freed.total > 0
+          ? `${euro(missing)} a trouver — rien n'est mis de cote pour l'instant, mais ${euro(freed.total)} par mois se liberent d'ici un an`
+          : `${euro(missing)} a trouver — aucun rythme d'epargne pour l'instant, donc aucune date`,
+      pct: ratio(goal.current, goal.target),
+      tone: pace > 0 ? 'good' : 'warn',
+    })
+  }
+
+  const streak = budgetStreak(s, 12, ref)
+  if (streak > 0) {
+    metrics.push({
+      key: 'streak',
+      icon: '\u{1F525}',
+      label: 'Enveloppe tenue',
+      value: `${streak} mois`,
+      detail: 'mois clos consecutifs sans depasser l’enveloppe de vie',
+      pct: null,
+      tone: 'good',
+    })
+  }
+
+  return {
+    metrics,
+    debtHistory: debtHistory(s, 6, ref),
+    streak,
+    debtPaid: paid,
+    debtInitial: initial,
+    freedWithinYear: freed.total,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Solutions : les leviers, chiffres, tries par ce qui change le plus   */
+/* ------------------------------------------------------------------ */
+
+export type SolutionTarget =
+  | 'comptes' | 'obligations' | 'dettes' | 'budget' | 'epargne' | 'revenus' | 'echeances'
+
+export interface Solution {
+  id: string
+  icon: string
+  tone: 'critical' | 'warn' | 'good' | 'info'
+  title: string
+  /** Pourquoi c'est vrai, avec les chiffres qui le montrent. */
+  why: string
+  /** Ce que ca change concretement. */
+  gain: string
+  /** Gain mensuel estime, pour le tri. 0 = non chiffrable. */
+  gainMonthly: number
+  effort: 'maintenant' | 'ce_mois' | 'duree'
+  target?: SolutionTarget
+  cta?: string
+}
+
+/**
+ * Des solutions, pas des reproches : chaque levier part des donnees reelles,
+ * dit ce qu'il rapporte et ou agir. Rien d'invente : si un chiffre n'est pas
+ * calculable, il n'est pas annonce.
+ */
+export function solutions(s: AppState, ref: ISODate = todayISO()): Solution[] {
+  const out: (Solution & { rank: number })[] = []
+  const debts = activeDebts(s)
+  const balances = accountBalances(s, ref).filter((b) => b.account.kind !== 'joint')
+
+  /* Un compte dans le rouge pendant qu'un autre est en positif. */
+  const red = balances.filter((b) => b.negative).sort((a, b) => a.balance - b.balance)[0]
+  const green = balances.filter((b) => b.balance > 0).sort((a, b) => b.balance - a.balance)[0]
+  // Sous 20 EUR, le virement ne change rien et prend la place d'un vrai levier.
+  const move = red && green ? round2(Math.min(green.balance, -red.balance)) : 0
+  if (red && green && move >= 20) {
+    out.push({
+      rank: 0,
+      id: 'virement',
+      icon: '\u{1F501}',
+      tone: 'critical',
+      title: `Renflouer ${red.account.name} depuis ${green.account.name}`,
+      why: `${red.account.name} est a ${euro(red.balance)} pendant que ${green.account.name} a ${euro(green.balance)}. Les agios se calculent compte par compte, jamais sur le total.`,
+      gain: `${euro(move)} a virer pour reduire le decouvert tout de suite`,
+      gainMonthly: 0,
+      effort: 'maintenant',
+      target: 'comptes',
+      cta: 'Faire un virement',
+    })
+  }
+
+  /* Ce qui est deja en retard passe avant toute optimisation. */
+  const overdue = overdueObligations(s, ref)
+  if (overdue.length > 0) {
+    const total = round2(overdue.reduce((a, o) => a + o.amount, 0))
+    out.push({
+      rank: 0,
+      id: 'retard',
+      icon: '⚠️',
+      tone: 'critical',
+      title: overdue.length === 1
+        ? `Traiter ${overdue[0].name}, deja echu`
+        : `Traiter ${overdue.length} obligations en retard`,
+      why: `${euro(total)} sont echus. Un impot ou une cotisation en retard produit des majorations ; un echelonnement demande avant relance, non.`,
+      gain: 'majorations et frais de relance evites',
+      gainMonthly: 0,
+      effort: 'maintenant',
+      target: 'obligations',
+      cta: 'Voir les obligations',
+    })
+  }
+
+  /* L'equation du mois : ce qui rentre face a ce qui est engage. */
+  const income = expectedMonthlyIncome(s, ref)
+  const fixed = round2(
+    s.obligations.filter((o) => o.recurrence === 'monthly').reduce((a, o) => a + o.amount, 0),
+  )
+  const debtsMonthly = round2(
+    debts.reduce((a, d) => a + Math.min(d.remainingAmount, d.monthlyPayment || 0), 0),
+  )
+  const commitments = round2(fixed + debtsMonthly + s.settings.livingBudget)
+  if (income > 0) {
+    const rest = round2(income - commitments)
+    if (rest < 0) {
+      out.push({
+        rank: 1,
+        id: 'ecart',
+        icon: '⚖️',
+        tone: 'critical',
+        title: `Il manque ${euro(-rest)} par mois, structurellement`,
+        why: `${euro(income)} attendus face a ${euro(commitments)} engages : ${euro(fixed)} d'obligations, ${euro(debtsMonthly)} de mensualites, ${euro(s.settings.livingBudget)} de vie. Un ecart de cette taille ne se comble pas en faisant attention : il se ferme en renegociant une mensualite ou en ajoutant du revenu.`,
+        gain: `${euro(-rest * 12)} par an en jeu`,
+        gainMonthly: round2(-rest),
+        effort: 'ce_mois',
+        target: 'dettes',
+        cta: 'Voir mes dettes',
+      })
+    } else {
+      out.push({
+        rank: 7,
+        id: 'reste',
+        icon: '✅',
+        tone: 'good',
+        title: `${euro(rest)} par mois une fois tout paye`,
+        why: `${euro(income)} attendus, ${euro(commitments)} engages. C'est cette somme-la, et elle seule, qui peut aller a l'epargne ou accelerer une dette.`,
+        gain: `${euro(rest * 12)} par an si elle est affectee`,
+        gainMonthly: rest,
+        effort: 'duree',
+        target: 'epargne',
+      })
+    }
+  } else {
+    out.push({
+      rank: 8,
+      id: 'revenu',
+      icon: '\u{1F4B0}',
+      tone: 'info',
+      title: 'Renseigner ton revenu mensuel attendu',
+      why: "Sans revenu de reference, le cockpit ne peut pas dire si tes engagements tiennent dans tes rentrees.",
+      gain: 'une projection qui veut dire quelque chose',
+      gainMonthly: 0,
+      effort: 'maintenant',
+      target: 'revenus',
+    })
+  }
+
+  /* Avalanche : le taux le plus eleve coute le plus cher, a encours egal. */
+  const worstRate = debts
+    .filter((d) => (d.rate ?? 0) > 0 && d.remainingAmount > 0)
+    .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))[0]
+  if (worstRate) {
+    const yearly = round2(worstRate.remainingAmount * (worstRate.rate ?? 0))
+    out.push({
+      rank: 2,
+      id: `avalanche-${worstRate.id}`,
+      icon: '\u{1F525}',
+      tone: 'warn',
+      title: `Mettre chaque euro en plus sur ${worstRate.name}`,
+      why: `C'est ton taux le plus eleve (${percent(worstRate.rate ?? 0, 2)}), sur ${euro(worstRate.remainingAmount)} restants. A euro egal, rembourser ailleurs coute plus cher.`,
+      gain: `environ ${euro(yearly)} d'interets par an sur cette ligne`,
+      gainMonthly: round2(yearly / 12),
+      effort: 'ce_mois',
+      target: 'dettes',
+      cta: 'Voir mes dettes',
+    })
+  }
+
+  /* Boule de neige : la premiere mensualite qui se libere. */
+  const freed = freedMonthly(s, 12, ref)
+  const first = freed.debts[0]
+  if (first) {
+    const last = freed.debts[freed.debts.length - 1]
+    out.push({
+      rank: 3,
+      id: 'liberation',
+      icon: '❄️',
+      tone: 'good',
+      title: `${euro(first.monthly)} par mois se liberent le ${longDate(first.date)}`,
+      why: `${first.debt.name} sera soldee a cette date. La mensualite ne disparait pas : elle devient disponible, tous les mois suivants.`,
+      gain: freed.debts.length > 1
+        ? `${euro(freed.total)} par mois d'ici ${longDate(last.date)}, sur ${freed.debts.length} credits`
+        : `${euro(first.monthly)} par mois`,
+      gainMonthly: first.monthly,
+      effort: 'duree',
+      target: 'dettes',
+    })
+  }
+
+  /* L'enveloppe de vie confrontee aux trois derniers mois suivis. */
+  const closed = [1, 2, 3]
+    .map((i) => livingSnapshot(s, refForMonth(shiftMonth(monthKey(ref), -i), ref)))
+    .filter((l) => l.count > 0)
+  if (closed.length >= 2) {
+    const avg = round2(closed.reduce((a, l) => a + l.spent, 0) / closed.length)
+    const budget = s.settings.livingBudget
+    const gap = round2(budget - avg)
+    if (gap >= 50) {
+      out.push({
+        rank: 4,
+        id: 'enveloppe-baisse',
+        icon: '✂️',
+        tone: 'good',
+        title: `Baisser l'enveloppe de vie a ${euro(avg + 50)}`,
+        why: `Tu depenses ${euro(avg)} par mois en moyenne pour une enveloppe de ${euro(budget)}. Tant que l'ecart n'est pas affecte ailleurs, il se depense tout seul.`,
+        gain: `${euro(gap)} par mois a rediriger vers ${worstRate ? worstRate.name : 'ton objectif'}`,
+        gainMonthly: gap,
+        effort: 'ce_mois',
+        target: 'budget',
+        cta: 'Ajuster le budget',
+      })
+    } else if (gap <= -50) {
+      out.push({
+        rank: 4,
+        id: 'enveloppe-hausse',
+        icon: '\u{1F4CA}',
+        tone: 'warn',
+        title: `L'enveloppe de vie est sous-evaluee de ${euro(-gap)}`,
+        why: `Tu depenses ${euro(avg)} par mois pour une enveloppe annoncee a ${euro(budget)}. Un budget depasse tous les mois n'informe plus, il culpabilise.`,
+        gain: `${euro(-gap * 12)} par an d'ecart entre le plan et la realite`,
+        gainMonthly: 0,
+        effort: 'ce_mois',
+        target: 'budget',
+        cta: 'Ajuster le budget',
+      })
+    }
+  }
+
+  /* Les prelevements recurrents : la depense qui ne demande jamais de decision. */
+  const subs = s.obligations.filter((o) => o.category === 'abonnement' && o.recurrence === 'monthly')
+  const subsTotal = round2(subs.reduce((a, o) => a + o.amount, 0))
+  if (subsTotal > 0) {
+    out.push({
+      rank: 5,
+      id: 'abonnements',
+      icon: '\u{1F501}',
+      tone: 'info',
+      title: `Passer en revue ${subs.length} abonnement(s)`,
+      why: `${euro(subsTotal)} par mois partent en prelevements recurrents, soit ${euro(subsTotal * 12)} par an. C'est la depense la plus facile a oublier : elle ne demande jamais de decision.`,
+      gain: `jusqu'a ${euro(subsTotal)} par mois selon ce que tu gardes`,
+      gainMonthly: 0,
+      effort: 'ce_mois',
+      target: 'obligations',
+    })
+  }
+
+  /* Provisions : lisser ce qui, sinon, devient une dette de plus. */
+  const prov = s.provisions.map((p) => provisionStatus(p, ref)).filter((p) => !p.ready)
+  if (prov.length > 0) {
+    const monthly = round2(prov.reduce((a, p) => a + p.monthly, 0))
+    const missing = round2(prov.reduce((a, p) => a + p.missing, 0))
+    out.push({
+      rank: 6,
+      id: 'provisions',
+      icon: '\u{1F3DB}️',
+      tone: 'warn',
+      title: `Mettre ${euro(monthly)} de cote chaque mois`,
+      why: `${euro(missing)} de factures non mensuelles arrivent (${prov.map((p) => p.provision.name).slice(0, 2).join(', ')}). Provisionnees, elles se paient ; subies, elles deviennent une dette de plus.`,
+      gain: `${euro(missing)} absorbes sans a-coup`,
+      gainMonthly: 0,
+      effort: 'duree',
+      target: 'epargne',
+    })
+  }
+
+  /* Le fonds de precaution : ce qui evite qu'un imprevu devienne un credit. */
+  const fund = emergencyFund(s, ref)
+  if (fund.monthlyNeed > 0 && fund.monthsCovered < 1) {
+    const oneMonth = round2(Math.max(0, fund.monthlyNeed - fund.saved))
+    out.push({
+      rank: 6,
+      id: 'precaution',
+      icon: '\u{1F6DF}',
+      tone: 'warn',
+      title: 'Viser un mois de charges de cote',
+      why: `Tu couvres ${fund.monthsCovered.toFixed(1).replace('.', ',')} mois de charges. En dessous d'un mois, le moindre imprevu se paie a credit — c'est comme ca qu'une dette en appelle une autre.`,
+      gain: `${euro(oneMonth)} a atteindre avant d'accelerer le reste`,
+      gainMonthly: 0,
+      effort: 'duree',
+      target: 'epargne',
+    })
+  }
+
+  /* L'objectif principal, finance par les mensualites qui se liberent. */
+  const goal = mainSavingsGoal(s)
+  if (goal && freed.total > 0) {
+    const pace = savingsPace(s, 3, ref)
+    const missing = round2(Math.max(0, goal.target - goal.current))
+    const months = Math.ceil(missing / (pace + freed.total))
+    out.push({
+      rank: 4,
+      id: 'objectif',
+      icon: goal.emoji || '⭐',
+      tone: 'good',
+      title: `Financer ${goal.name} avec les mensualites liberees`,
+      why: `${euro(freed.total)} par mois se liberent d'ici un an a mesure que tes credits se soldent. Redirige-les au lieu de les reabsorber : c'est le chemin le plus court vers cet objectif.`,
+      gain: `${euro(missing)} atteints en ${months} mois environ, a ${euro(pace + freed.total)} par mois`,
+      gainMonthly: freed.total,
+      effort: 'duree',
+      target: 'epargne',
+    })
+  }
+
+  return out.sort((a, b) => a.rank - b.rank || b.gainMonthly - a.gainMonthly)
 }

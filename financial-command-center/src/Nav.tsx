@@ -3,6 +3,13 @@ export type View =
   | 'epargne' | 'calendrier' | 'projection' | 'sante' | 'habitudes' | 'echeances'
   | 'reglages'
 
+/**
+ * Masques en mode stabilisation : on garde l'essentiel sous les yeux.
+ * L'epargne reste visible — elle porte les provisions et le fonds de
+ * precaution, qui comptent d'autant plus quand la situation est tendue.
+ */
+export const CRISIS_HIDDEN: View[] = ['habitudes', 'projection', 'budget']
+
 interface Entry { view: View; label: string; icon: string; group: string }
 
 /** Regroupe par intention, pas par type de donnee. */
