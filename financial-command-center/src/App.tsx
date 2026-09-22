@@ -14,6 +14,7 @@ import { Health } from './views/Health'
 import { Habits } from './views/Habits'
 import { Settings } from './views/Settings'
 import { Budget } from './views/Budget'
+import { Deadlines } from './views/Deadlines'
 import { ToastProvider } from './components/Toast'
 import { ExpenseModal } from './modals/ExpenseModal'
 import { IncomeModal } from './modals/IncomeModal'
@@ -36,6 +37,7 @@ const TITLES: Record<View, string> = {
   calendrier: 'Calendrier',
   projection: 'Projection',
   sante: 'Sante financiere',
+  echeances: 'Echeances',
   habitudes: 'Habitudes',
   reglages: 'Reglages',
 }
@@ -121,6 +123,7 @@ function Shell() {
           {view === 'obligations' && <Obligations />}
           {view === 'dettes' && <Debts />}
           {view === 'budget' && <Budget />}
+          {view === 'echeances' && <Deadlines />}
           {view === 'epargne' && <Savings />}
           {view === 'calendrier' && <CalendarView />}
           {view === 'projection' && <Projection />}

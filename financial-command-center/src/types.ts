@@ -138,6 +138,30 @@ export interface Provision {
   note?: string
 }
 
+export type DeadlinePriority = 'urgente' | 'importante' | 'a_prevoir'
+/** Sens de l'impact chiffre d'une echeance. */
+export type ImpactPeriod = 'an' | 'mois' | 'unique'
+
+/**
+ * Une echeance administrative ou fiscale : une action a faire avant une date,
+ * qui coute ou rapporte de l'argent. Ce n'est ni une depense ni une dette,
+ * mais l'oublier se paie comptant.
+ */
+export interface Deadline {
+  id: string
+  title: string
+  detail?: string
+  dueDate: ISODate
+  priority: DeadlinePriority
+  /** Positif = gain attendu, negatif = cout subi. */
+  impact?: number
+  impactPeriod?: ImpactPeriod
+  /** Ou agir : site de l'administration, de la banque. */
+  link?: string
+  done: boolean
+  doneAt?: ISODate
+}
+
 export interface SavingsGoal {
   id: string
   name: string
@@ -176,6 +200,7 @@ export interface AppState {
   transactions: Transaction[]
   savingsGoals: SavingsGoal[]
   provisions: Provision[]
+  deadlines: Deadline[]
 }
 
 export const TX_CATEGORY_LABELS: Record<TxCategory, string> = {

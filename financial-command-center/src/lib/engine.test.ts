@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { AppState, Debt, Income, Obligation, Provision, Transaction } from '../types'
+import type { AppState, Deadline, Debt, Income, Obligation, Provision, Transaction } from '../types'
 import { emptyState, uid } from './storage'
 import {
   availability, analyseExpense, bankBalance, behaviourComparison, crisisState,
@@ -8,6 +8,7 @@ import {
   categoryBreakdown, emergencyFund, insights, monthPosition, provisionStatus,
   provisionsMonthlyTotal, provisionsSaved, refForMonth, savedInMonth,
   savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
+  deadlineStakes, deadlinesDueWithin, openDeadlines, overdueDeadlines, yearlyImpact,
 } from './engine'
 import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
@@ -1056,5 +1057,109 @@ describe('lecture d’un mois clos ou a venir', () => {
     s.transactions = [tx({ amount: 100 })]
     expect(weather(s, REF, REF).title).toBe('Tu as de la marge')
     expect(insights(s, REF, REF).some((i) => i.id === 'end')).toBe(true)
+  })
+})
+
+describe('echeances administratives', () => {
+  function deadline(p: Partial<Deadline>): Deadline {
+    return {
+      id: uid(), title: 'Activer le VFL', dueDate: addDays(REF, 10),
+      priority: 'urgente', done: false, ...p,
+    }
+  }
+
+  it('classe par date avant priorite', () => {
+    const s = base()
+    s.deadlines = [
+      deadline({ title: 'Lointaine urgente', dueDate: addMonths(REF, 6), priority: 'urgente' }),
+      deadline({ title: 'Proche a prevoir', dueDate: addDays(REF, 2), priority: 'a_prevoir' }),
+    ]
+    expect(openDeadlines(s)[0].title).toBe('Proche a prevoir')
+  })
+
+  it('departage deux memes dates par la priorite', () => {
+    const s = base()
+    const d = addDays(REF, 5)
+    s.deadlines = [
+      deadline({ title: 'B', dueDate: d, priority: 'a_prevoir' }),
+      deadline({ title: 'A', dueDate: d, priority: 'urgente' }),
+    ]
+    expect(openDeadlines(s).map((x) => x.title)).toEqual(['A', 'B'])
+  })
+
+  it('sort les echeances faites de la liste', () => {
+    const s = base()
+    s.deadlines = [deadline({ done: true }), deadline({ title: 'Reste' })]
+    expect(openDeadlines(s)).toHaveLength(1)
+    expect(openDeadlines(s)[0].title).toBe('Reste')
+  })
+
+  it('repere le retard et l’imminence', () => {
+    const s = base()
+    s.deadlines = [
+      deadline({ title: 'Passee', dueDate: addDays(REF, -3) }),
+      deadline({ title: 'Bientot', dueDate: addDays(REF, 6) }),
+      deadline({ title: 'Plus tard', dueDate: addMonths(REF, 4) }),
+    ]
+    expect(overdueDeadlines(s, REF).map((d) => d.title)).toEqual(['Passee'])
+    expect(deadlinesDueWithin(s, 14, REF).map((d) => d.title)).toEqual(['Bientot'])
+  })
+
+  it('ramene les impacts a l’annee pour les comparer', () => {
+    expect(yearlyImpact(deadline({ impact: 4000, impactPeriod: 'an' }))).toBe(4000)
+    expect(yearlyImpact(deadline({ impact: -560, impactPeriod: 'mois' }))).toBe(-6720)
+    expect(yearlyImpact(deadline({ impact: 1400, impactPeriod: 'unique' }))).toBe(1400)
+    expect(yearlyImpact(deadline({}))).toBe(0)
+  })
+
+  it('totalise ce qui se joue, gains et couts separes', () => {
+    const s = base()
+    s.deadlines = [
+      deadline({ impact: 4000, impactPeriod: 'an' }),
+      deadline({ impact: -560, impactPeriod: 'mois' }),
+      deadline({ impact: 1400, impactPeriod: 'unique', done: true }),
+    ]
+    const st = deadlineStakes(s)
+    expect(st.open).toBe(2)
+    expect(st.gains).toBe(4000)
+    expect(st.costs).toBe(-6720)
+    expect(st.net).toBe(-2720)
+  })
+
+  it('reste neutre sans aucune echeance', () => {
+    expect(deadlineStakes(base())).toEqual({ open: 0, gains: 0, costs: 0, net: 0 })
+  })
+})
+
+describe('echeance remontee au tableau de bord', () => {
+  function dl(p: Partial<Deadline>): Deadline {
+    return { id: uid(), title: 'Activer le VFL', dueDate: addDays(REF, 5), priority: 'urgente', done: false, ...p }
+  }
+
+  it('signale une echeance imminente avec son enjeu', () => {
+    const s = base()
+    s.deadlines = [dl({ impact: 4000, impactPeriod: 'an' })]
+    const card = insights(s, REF, REF).find((i) => i.id.startsWith('deadline-'))
+    expect(card).toBeDefined()
+    expect(card!.title).toContain('dans 5 jours')
+    expect(card!.detail).toContain('Gain')
+  })
+
+  it('passe au rouge quand la date est depassee', () => {
+    const s = base()
+    s.deadlines = [dl({ dueDate: addDays(REF, -2) })]
+    expect(insights(s, REF, REF).find((i) => i.id.startsWith('deadline-'))!.tone).toBe('critical')
+  })
+
+  it('ignore une echeance lointaine ou deja faite', () => {
+    const s = base()
+    s.deadlines = [dl({ dueDate: addMonths(REF, 5) }), dl({ done: true })]
+    expect(insights(s, REF, REF).some((i) => i.id.startsWith('deadline-'))).toBe(false)
+  })
+
+  it('ne pollue pas la lecture d’un mois clos', () => {
+    const s = base()
+    s.deadlines = [dl({})]
+    expect(insights(s, refForMonth('2026-08', REF), REF).some((i) => i.id.startsWith('deadline-'))).toBe(false)
   })
 })

@@ -71,6 +71,19 @@ export function demoState(): AppState {
       { id: uid(), date: addDays(som, 11), description: 'Cinema', category: 'loisirs', amount: 22, kind: 'vie' },
     ],
     savingsGoals: goals,
+    deadlines: [
+      {
+        id: uid(), title: 'Declarer le chiffre d\u2019affaires', dueDate: addDays(t, 9),
+        priority: 'urgente', done: false,
+        detail: 'Declaration mensuelle sur le portail de l\u2019URSSAF.',
+      },
+      {
+        id: uid(), title: 'Revoir le contrat d\u2019assurance', dueDate: addMonths(t, 2),
+        priority: 'importante', impact: 18, impactPeriod: 'mois', done: false,
+        detail: 'Comparer avant la reconduction tacite.',
+      },
+    ],
+
     provisions: [
       {
         id: uid(), name: 'Taxe fonciere', emoji: '\u{1F3DB}\uFE0F', amount: 1100,

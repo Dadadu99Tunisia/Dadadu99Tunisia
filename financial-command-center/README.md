@@ -47,6 +47,7 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 |---|---|
 | **Tableau de bord** | Meteo du mois, faits marquants, solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade |
 | **Budget type** | Repartition prevue de l'enveloppe de vie par categorie, comparee au reel |
+| **Echeances** | Demarches fiscales et administratives datees, avec leur enjeu chiffre |
 | **Revenus** | Prevu / facture / encaisse, revenus recurrents, repartition guidee a l'encaissement |
 | **Depenses** | Saisie, import de releves bancaires, categories, modification, suppression, et surtout l'analyse d'impact |
 | **Obligations** | Echeances ponctuelles ou recurrentes ; une obligation reglee recree automatiquement la suivante |
@@ -97,6 +98,15 @@ le rythme moyen sur trois mois et le delai estime pour atteindre la cible.
 Une repartition prevue de l'enveloppe de vie par categorie, comparee au reel
 de chaque mois. Elle ne bloque rien : le seul plafond ferme reste l'enveloppe
 globale. Trois repartitions de depart evitent la page blanche.
+
+### Echeances administratives
+
+Activer une option fiscale avant une date, resilier avant la reconduction,
+anticiper la fin d'un dispositif : ce ne sont ni des depenses ni des dettes,
+mais les rater coute de l'argent. Chaque echeance porte une date, une
+priorite, un lien vers la demarche et un impact chiffre (par an, par mois ou
+une fois), ramene a l'annee pour comparer ce qui merite d'etre traite en
+premier. La plus pressante remonte sur le tableau de bord.
 
 ### Import de releves bancaires
 
@@ -171,7 +181,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 142 tests : moteur de calcul et import bancaire
+npm test           # 153 tests : moteur de calcul et import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de
@@ -188,7 +198,7 @@ src/
     engine.ts         tous les calculs derives — aucune logique metier ailleurs
     engine.test.ts    cas limites : mois sans revenu, depassement, dette
                       partielle, recurrences, fractionnes, projection,
-                      provisions, mois clos, meteo
+                      provisions, echeances, mois clos, meteo
     bankImport.ts     lecture des releves CSV / OFX / QIF, categorisation,
                       detection des doublons
     bankImport.test.ts formats reels des banques francaises

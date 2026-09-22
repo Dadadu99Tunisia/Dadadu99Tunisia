@@ -40,6 +40,7 @@ export function emptyState(): AppState {
     transactions: [],
     savingsGoals: defaultGoals(),
     provisions: [],
+    deadlines: [],
   }
 }
 
@@ -58,6 +59,7 @@ export function normalise(raw: unknown): AppState {
     savingsGoals:
       Array.isArray(r.savingsGoals) && r.savingsGoals.length > 0 ? r.savingsGoals : base.savingsGoals,
     provisions: Array.isArray(r.provisions) ? r.provisions : [],
+    deadlines: Array.isArray(r.deadlines) ? r.deadlines : [],
   }
   // Garde-fous : des nombres restent des nombres apres un aller-retour JSON.
   for (const d of state.debts) {
@@ -76,6 +78,10 @@ export function normalise(raw: unknown): AppState {
   for (const p of state.provisions) {
     p.amount = Number(p.amount) || 0
     p.saved = Number(p.saved) || 0
+  }
+  for (const d of state.deadlines) {
+    d.done = !!d.done
+    if (d.impact !== undefined) d.impact = Number(d.impact) || 0
   }
   if (!state.settings.categoryBudgets || typeof state.settings.categoryBudgets !== 'object') {
     state.settings.categoryBudgets = {}

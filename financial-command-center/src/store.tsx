@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  AppState, Debt, Income, Obligation, Provision, SavingsGoal, Settings, Transaction,
+  AppState, Deadline, Debt, Income, Obligation, Provision, SavingsGoal, Settings, Transaction,
 } from './types'
 import { load, save, uid, emptyState } from './lib/storage'
 import { addMonths, today } from './lib/dates'
@@ -29,6 +29,9 @@ type Action =
   | { type: 'provision/remove'; id: string }
   | { type: 'provision/fund'; id: string; amount: number; date: string }
   | { type: 'provision/settle'; id: string; date: string }
+  | { type: 'deadline/upsert'; deadline: Deadline }
+  | { type: 'deadline/remove'; id: string }
+  | { type: 'deadline/toggle'; id: string; date: string }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -240,6 +243,28 @@ function reducer(state: AppState, action: Action): AppState {
         transactions: [...state.transactions, ...txs],
       }
     }
+
+    case 'deadline/upsert': {
+      const exists = state.deadlines.some((d) => d.id === action.deadline.id)
+      return {
+        ...state,
+        deadlines: exists
+          ? state.deadlines.map((d) => (d.id === action.deadline.id ? action.deadline : d))
+          : [...state.deadlines, action.deadline],
+      }
+    }
+    case 'deadline/remove':
+      return { ...state, deadlines: state.deadlines.filter((d) => d.id !== action.id) }
+
+    case 'deadline/toggle':
+      return {
+        ...state,
+        deadlines: state.deadlines.map((d) =>
+          d.id === action.id
+            ? { ...d, done: !d.done, doneAt: !d.done ? action.date : undefined }
+            : d,
+        ),
+      }
 
     case 'import/apply': {
       // Les empreintes d'import garantissent qu'un releve rejoue deux fois

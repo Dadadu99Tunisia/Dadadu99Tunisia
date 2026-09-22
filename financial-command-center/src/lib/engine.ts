@@ -1,5 +1,7 @@
 import type {
   AppState,
+  Deadline,
+  DeadlinePriority,
   Debt,
   Income,
   ISODate,
@@ -22,6 +24,7 @@ import {
   monthKey,
   previousMonthKey,
   longDate,
+  relativeDue,
   startOfMonth,
   today as todayISO,
 } from './dates'
@@ -1446,6 +1449,20 @@ export function insights(
     })
   }
 
+  const lateActions = overdueDeadlines(s, ref)
+  const soonActions = deadlinesDueWithin(s, 14, ref)
+  const action = lateActions[0] ?? soonActions[0]
+  if (action && !closed && !future) {
+    const stake = action.impact ? ` ${action.impact > 0 ? 'Gain' : 'Cout'} estime : ${euro(Math.abs(action.impact))} ${action.impactPeriod === 'mois' ? 'par mois' : action.impactPeriod === 'an' ? 'par an' : ''}.` : ''
+    out.push({
+      id: `deadline-${action.id}`,
+      tone: lateActions.length > 0 ? 'critical' : 'warn',
+      icon: '\u{1F4CC}',
+      title: `${action.title} \u2014 ${relativeDue(action.dueDate, ref)}`,
+      detail: `${action.detail ? action.detail + '.' : 'Echeance administrative a traiter.'}${stake}`,
+    })
+  }
+
   if (lateProvisions.length > 0) {
     out.push({
       id: 'provision',
@@ -1457,4 +1474,49 @@ export function insights(
   }
 
   return out.slice(0, 3)
+}
+
+/* ------------------------------------------------------------------ */
+/* Echeances administratives et fiscales                                */
+/* ------------------------------------------------------------------ */
+
+const DEADLINE_RANK: Record<DeadlinePriority, number> = {
+  urgente: 0,
+  importante: 1,
+  a_prevoir: 2,
+}
+
+/**
+ * Les echeances encore ouvertes, la plus pressante en tete.
+ * On trie par date avant la priorite : une action importante qui tombe demain
+ * passe devant une action urgente prevue dans six mois.
+ */
+export function openDeadlines(s: AppState): Deadline[] {
+  return s.deadlines
+    .filter((d) => !d.done)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || DEADLINE_RANK[a.priority] - DEADLINE_RANK[b.priority])
+}
+
+export function overdueDeadlines(s: AppState, ref: ISODate = todayISO()): Deadline[] {
+  return openDeadlines(s).filter((d) => d.dueDate < ref)
+}
+
+export function deadlinesDueWithin(s: AppState, days: number, ref: ISODate = todayISO()): Deadline[] {
+  const limit = addDays(ref, days)
+  return openDeadlines(s).filter((d) => d.dueDate >= ref && d.dueDate <= limit)
+}
+
+/** Ramene un impact a une valeur annuelle, pour pouvoir les comparer. */
+export function yearlyImpact(d: Deadline): number {
+  if (!d.impact) return 0
+  if (d.impactPeriod === 'mois') return round2(d.impact * 12)
+  return round2(d.impact)
+}
+
+/** Ce qui se joue sur les echeances encore ouvertes : gains et couts. */
+export function deadlineStakes(s: AppState) {
+  const open = openDeadlines(s)
+  const gains = round2(open.filter((d) => (d.impact ?? 0) > 0).reduce((a, d) => a + yearlyImpact(d), 0))
+  const costs = round2(open.filter((d) => (d.impact ?? 0) < 0).reduce((a, d) => a + yearlyImpact(d), 0))
+  return { open: open.length, gains, costs, net: round2(gains + costs) }
 }
