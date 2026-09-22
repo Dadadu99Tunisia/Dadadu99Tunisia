@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import type { ProgressReport, Solution } from '../lib/engine'
+import type { GoalForecast, ProgressReport, Solution } from '../lib/engine'
 import type { View } from '../Nav'
-import { Bar, Card, Empty } from './ui'
+import { Bar, Card, Empty, Segmented } from './ui'
+import { euro } from '../lib/money'
+import { longDate } from '../lib/dates'
 
 /** Une mesure qui progresse se lit mieux en vert ; une alerte, en orange. */
 const BAR_TONE: Record<string, '' | 'obligations' | 'epargne'> = {
@@ -116,3 +118,85 @@ export function SolutionsCard({
     </Card>
   )
 }
+
+/**
+ * La date de l'objectif, et ce qui la deplace.
+ * Une date sans hypothese n'aide pas : on montre la capacite du mois, celle
+ * dans un an quand des credits sont soldes, et l'effet d'un revenu en plus.
+ */
+export function GoalTimingCard({
+  forecast, extra, onExtra, go,
+}: {
+  forecast: GoalForecast
+  extra: number
+  onExtra: (v: number) => void
+  go: (v: View) => void
+}) {
+  const { goal, date, months, capacityNow, capacitySoon, missing, income } = forecast
+  return (
+    <Card
+      title={`Quand ${goal.name} ?`}
+      action={<button className="btn sm ghost" onClick={() => go('epargne')}>Objectifs</button>}
+    >
+      <div className={`goal-when ${date ? '' : 'none'}`}>
+        <div className="when">
+          <div className="big num">{date ? longDate(date) : 'Pas de date'}</div>
+          <div className="sub">
+            {date
+              ? capacityNow > 0
+                ? `dans ${months} mois, au rythme que tes finances permettent`
+                : `dans ${months} mois : rien ce mois-ci, puis de plus en plus a mesure que les credits se soldent`
+              : 'rien ne reste a mettre de cote chaque mois'}
+          </div>
+        </div>
+        <div className="legs">
+          <div className="leg">
+            <div className="n num">{euro(capacityNow)}</div>
+            <div className="l">ce mois-ci</div>
+          </div>
+          <div className="leg">
+            <div className="n num">{euro(capacitySoon)}</div>
+            <div className="l">dans un an</div>
+          </div>
+          <div className="leg">
+            <div className="n num">{euro(missing)}</div>
+            <div className="l">a trouver</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <Bar value={goal.current} max={goal.target} tone="epargne" tall />
+        <div className="row" style={{ marginTop: 7 }}>
+          <span className="fine">{euro(goal.current)} mis de cote</span>
+          <span className="spacer" />
+          <span className="fine">objectif {euro(goal.target)}</span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <div className="section-title" style={{ marginBottom: 8 }}>Et si je gagnais plus ?</div>
+        <Segmented
+          value={String(extra)}
+          ariaLabel="Revenu mensuel supplementaire simule"
+          options={EXTRA_OPTIONS}
+          onChange={(v) => onExtra(Number(v))}
+        />
+      </div>
+
+      <p className="fine" style={{ marginTop: 12 }}>
+        Calcul mois par mois sur {euro(income)} de revenu mensuel : obligations, enveloppe de
+        vie, mensualites de dettes et provisions lissees deduites. Chaque credit solde en cours
+        de route augmente ce qui reste. Une depense au-dela de l&rsquo;enveloppe, elle, recule
+        la date.
+      </p>
+    </Card>
+  )
+}
+
+const EXTRA_OPTIONS = [
+  { value: '0', label: 'Aujourd’hui' },
+  { value: '500', label: '+500 €' },
+  { value: '1000', label: '+1 000 €' },
+  { value: '2000', label: '+2 000 €' },
+]

@@ -4,14 +4,14 @@ import {
   availability, crisisState, healthReport, livingSnapshot, monthlyCascade,
   obligationsDueWithin, overdueObligations, priorityActions, activeDebts, upcomingIncomes,
   insights, monthPosition, refForMonth, weather, accountBalances,
-  progressReport, solutions,
+  progressReport, solutions, goalForecast, mainSavingsGoal,
 } from '../lib/engine'
 import { euro, ratio } from '../lib/money'
 import { longDate, monthLabel, relativeDue, today } from '../lib/dates'
 import { Bar, Badge, Callout, Card, Empty, Stat } from '../components/ui'
 import { CascadeView } from '../components/Cascade'
 import { MonthSwitcher } from '../components/MonthSwitcher'
-import { ProgressCard, SolutionsCard } from '../components/Plan'
+import { GoalTimingCard, ProgressCard, SolutionsCard } from '../components/Plan'
 import { CRISIS_HIDDEN } from '../Nav'
 import type { View } from '../Nav'
 
@@ -48,6 +48,14 @@ export function Dashboard({
   // du mois qu'on consulte.
   const progress = useMemo(() => progressReport(state, now), [state, now])
   const levers = useMemo(() => solutions(state, now), [state, now])
+  // Revenu supplementaire simule : une question qu'on se pose souvent, et dont
+  // la reponse merite mieux qu'une division de tete.
+  const [extra, setExtra] = useState(0)
+  const goal = useMemo(() => mainSavingsGoal(state), [state])
+  const forecast = useMemo(
+    () => (goal ? goalForecast(state, goal, now, extra) : undefined),
+    [state, goal, now, extra],
+  )
 
   const empty =
     state.incomes.length === 0 &&
@@ -97,6 +105,10 @@ export function Dashboard({
         <SolutionsCard list={levers} go={go} hidden={CRISIS_HIDDEN} limit={2} />
 
         <ProgressCard report={progress} onDetail={() => go('dettes')} />
+
+        {forecast && (
+          <GoalTimingCard forecast={forecast} extra={extra} onExtra={setExtra} go={go} />
+        )}
 
         {overdue.length > 0 && (
           <Card title="Obligations urgentes" flush action={<button className="btn sm ghost" onClick={() => go('obligations')}>Tout voir</button>}>
@@ -207,6 +219,10 @@ export function Dashboard({
       )}
 
       <ProgressCard report={progress} onDetail={() => go('dettes')} />
+
+      {forecast && (
+        <GoalTimingCard forecast={forecast} extra={extra} onExtra={setExtra} go={go} />
+      )}
 
       <SolutionsCard list={levers} go={go} />
 

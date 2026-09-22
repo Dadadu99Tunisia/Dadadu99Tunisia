@@ -10,7 +10,7 @@ import {
   savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
   deadlineStakes, deadlinesDueWithin, openDeadlines, overdueDeadlines, yearlyImpact,
   accountBalance, accountBalances, accountsInTrouble, debtPayoff, nextDebtCleared,
-  progressReport, solutions, budgetStreak, freedMonthly,
+  progressReport, solutions, budgetStreak, freedMonthly, goalForecast,
 } from './engine'
 import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
@@ -1465,11 +1465,19 @@ describe('suivi', () => {
     expect(budgetStreak(s, 12, REF)).toBe(0)
   })
 
-  it('annonce l’objectif sans date tant que rien n’est epargne', () => {
+  it('annonce la date que les finances permettent quand rien n’est encore epargne', () => {
     const s = base()
     const m = progressReport(s, REF).metrics.find((x) => x.key === 'objectif')!
-    expect(m.detail).toContain('aucune date')
+    expect(m.detail).toContain("rien n'est encore mis de cote")
+    expect(m.detail).toContain('2026')
     expect(m.tone).toBe('warn')
+  })
+
+  it('dit qu’il n’y a pas de date quand il ne reste rien a mettre de cote', () => {
+    const s = base()
+    s.obligations = [obligation({ amount: 3200, recurrence: 'monthly', dueDate: addDays(REF, 5) })]
+    const m = progressReport(s, REF).metrics.find((x) => x.key === 'objectif')!
+    expect(m.detail).toContain('aucune date')
   })
 
   it('additionne les mensualites qui se liberent dans l’annee', () => {
@@ -1542,12 +1550,22 @@ describe('solutions', () => {
     expect(sol.gainMonthly).toBe(600)
   })
 
-  it('chiffre l’objectif a partir des mensualites liberees', () => {
+  it('date l’objectif sur ce que les finances laissent chaque mois', () => {
     const s = base()
     s.savingsGoals = [{ id: 'g', name: 'Voiture', emoji: '\u{1F697}', target: 12000, current: 0 }]
-    s.debts = [debt({ name: 'A', monthlyPayment: 500, remainingAmount: 1500, endDate: '2026-12-05' })]
+    s.debts = [debt({ name: 'A', monthlyPayment: 500, remainingAmount: 1500 })]
     const sol = solutions(s, REF).find((x) => x.id === 'objectif')!
-    expect(sol.gain).toContain('24 mois')
+    // 2 500 EUR les trois premiers mois, 3 000 ensuite : 5 mois.
+    expect(sol.gain).toContain('5 mois')
+    expect(sol.tone).toBe('good')
+  })
+
+  it('dit sans detour qu’un objectif n’a pas de date quand rien ne reste', () => {
+    const s = base()
+    s.obligations = [obligation({ amount: 3500, recurrence: 'monthly', dueDate: addDays(REF, 5) })]
+    const sol = solutions(s, REF).find((x) => x.id === 'objectif')!
+    expect(sol.title).toContain('pas encore de date')
+    expect(sol.tone).toBe('warn')
   })
 })
 
@@ -1568,5 +1586,56 @@ describe('leviers : garde-fous', () => {
     })
     setOpening(s, -400)
     expect(solutions(s, REF).find((x) => x.id === 'virement')).toBeUndefined()
+  })
+})
+
+describe('date d’un objectif', () => {
+  function goal(target = 12000, current = 0) {
+    return { id: 'g', name: 'Voiture', emoji: '\u{1F697}', target, current }
+  }
+
+  it('tient compte des mensualites qui s’arretent en route', () => {
+    const s = base()
+    s.debts = [debt({ monthlyPayment: 500, remainingAmount: 1500 })]
+    const f = goalForecast(s, goal(), REF)
+    expect(f.capacityNow).toBe(2500)
+    expect(f.capacitySoon).toBe(3000)
+    expect(f.months).toBe(5)
+  })
+
+  it('avance la date quand un revenu supplementaire arrive', () => {
+    const s = base()
+    const sans = goalForecast(s, goal(24000), REF)
+    const avec = goalForecast(s, goal(24000), REF, 1000)
+    expect(sans.months).toBe(8)
+    expect(avec.months).toBe(6)
+    expect(avec.income).toBe(5000)
+  })
+
+  it('garde une date quand le mois en cours est negatif mais que des credits se soldent', () => {
+    const s = base()
+    // Ce mois-ci tout part ; dans quelques mois, la mensualite s'arrete.
+    s.debts = [debt({ monthlyPayment: 3200, remainingAmount: 6400 })]
+    const f = goalForecast(s, goal(3000), REF)
+    expect(f.capacityNow).toBeLessThan(0)
+    expect(f.months).toBe(3)
+    const m = progressReport(s, REF).metrics.find((x) => x.key === 'objectif')!
+    expect(m.detail).toContain('ce mois-ci il ne reste rien')
+  })
+
+  it('ne promet aucune date quand il ne reste rien', () => {
+    const s = base()
+    s.obligations = [obligation({ amount: 3200, recurrence: 'monthly', dueDate: addDays(REF, 5) })]
+    const f = goalForecast(s, goal(), REF)
+    expect(f.capacityNow).toBeLessThan(0)
+    expect(f.months).toBeNull()
+    expect(f.date).toBeNull()
+  })
+
+  it('lisse les provisions sur l’annee au lieu de plomber le premier mois', () => {
+    const s = base()
+    s.provisions = [{ id: 'p', name: 'Taxe fonciere', emoji: '\u{1F3DB}\uFE0F', amount: 1200, dueDate: addDays(REF, 20), recurrence: 'yearly', saved: 0 }]
+    const f = goalForecast(s, goal(), REF)
+    expect(f.capacityNow).toBe(2900)
   })
 })

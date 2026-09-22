@@ -53,7 +53,7 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 | **Depenses** | Saisie, import de releves bancaires, categories, modification, suppression, et surtout l'analyse d'impact |
 | **Obligations** | Echeances ponctuelles ou recurrentes ; une obligation reglee recree automatiquement la suivante |
 | **Dettes** | Encours, mensualites, TAEG, fin de contrat, priorites, progression vers zero |
-| **Epargne** | Epargne de precaution en mois de charges, taux et rythme, historique mensuel, provisions et objectifs avec images |
+| **Epargne** | Epargne de precaution en mois de charges, taux et rythme, historique mensuel, provisions et objectifs avec images ; la date de l'objectif principal est simulee mois par mois |
 | **Calendrier** | Fil des echeances avec le solde projete apres chaque evenement |
 | **Projection** | 30 / 60 / 90 jours et 6 mois : tresorerie, dettes, epargne |
 | **Sante** | Score sur 100, six facteurs objectifs, chacun explique |
@@ -87,6 +87,24 @@ Deux regles evitent les faux leviers : une dette qui tient en un seul paiement
 ne libere aucune mensualite (elle ne revenait pas tous les mois), et un
 virement de quelques euros n'est pas propose — il prendrait la place d'un vrai
 levier. Rien n'est invente : un chiffre non calculable n'est pas annonce.
+
+### Quand l'objectif tombe
+
+La question « a quand ? » ne se repond pas en divisant ce qui reste par le
+rythme d'epargne du moment : les mensualites s'arretent a des dates
+differentes, et chaque credit solde rend sa mensualite disponible. Le cockpit
+simule donc mois par mois — revenu attendu, obligations mensuelles, enveloppe
+de vie, mensualites (interets compris pour les credits a taux), provisions
+lissees sur l'annee — et annonce la date obtenue, la capacite d'epargne du mois
+en cours et celle dans un an.
+
+Un mois en cours negatif n'empeche pas une date : il est dit tel quel, et la
+date vient de la suite. Si rien ne reste a mettre de cote sur tout l'horizon,
+aucune date n'est annoncee, et c'est dit aussi.
+
+Un selecteur simule un revenu mensuel supplementaire (+500, +1 000, +2 000 EUR)
+et recalcule la date : c'est la reponse chiffree a « et si je signais un client
+de plus ? ».
 
 ### « Puis-je me le permettre ? »
 
@@ -265,7 +283,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 195 tests : moteur de calcul, stockage, import bancaire
+npm test           # 202 tests : moteur de calcul, stockage, import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de

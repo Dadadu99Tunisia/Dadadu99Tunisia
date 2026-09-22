@@ -1816,6 +1816,7 @@ export function progressReport(s: AppState, ref: ISODate = todayISO()): Progress
   const goal = mainSavingsGoal(s)
   if (goal) {
     const pace = savingsPace(s, 3, ref)
+    const forecast = goalForecast(s, goal, ref)
     const missing = round2(Math.max(0, goal.target - goal.current))
     metrics.push({
       key: 'objectif',
@@ -1824,9 +1825,11 @@ export function progressReport(s: AppState, ref: ISODate = todayISO()): Progress
       value: `${euro(goal.current)} / ${euro(goal.target)}`,
       detail: pace > 0
         ? `${euro(missing)} a trouver — environ ${Math.ceil(missing / pace)} mois a ${euro(pace)} par mois`
-        : freed.total > 0
-          ? `${euro(missing)} a trouver — rien n'est mis de cote pour l'instant, mais ${euro(freed.total)} par mois se liberent d'ici un an`
-          : `${euro(missing)} a trouver — aucun rythme d'epargne pour l'instant, donc aucune date`,
+        : forecast.date
+          ? forecast.capacityNow > 0
+            ? `${euro(missing)} a trouver — rien n'est encore mis de cote, mais tes finances en laissent ${euro(forecast.capacityNow)} par mois : ${longDate(forecast.date)}`
+            : `${euro(missing)} a trouver — ce mois-ci il ne reste rien, mais les credits qui se soldent liberent ${euro(forecast.capacitySoon)} par mois d'ici un an : ${longDate(forecast.date)}`
+          : `${euro(missing)} a trouver — rien ne reste a mettre de cote chaque mois, donc aucune date`,
       pct: ratio(goal.current, goal.target),
       tone: pace > 0 ? 'good' : 'warn',
     })
@@ -2120,25 +2123,115 @@ export function solutions(s: AppState, ref: ISODate = todayISO()): Solution[] {
     })
   }
 
-  /* L'objectif principal, finance par les mensualites qui se liberent. */
+  /* L'objectif principal : la date que les finances permettent vraiment. */
   const goal = mainSavingsGoal(s)
-  if (goal && freed.total > 0) {
-    const pace = savingsPace(s, 3, ref)
-    const missing = round2(Math.max(0, goal.target - goal.current))
-    const months = Math.ceil(missing / (pace + freed.total))
-    out.push({
+  if (goal) {
+    const f = goalForecast(s, goal, ref)
+    out.push(f.date ? {
       rank: 4,
       id: 'objectif',
       icon: goal.emoji || '⭐',
       tone: 'good',
-      title: `Financer ${goal.name} avec les mensualites liberees`,
-      why: `${euro(freed.total)} par mois se liberent d'ici un an a mesure que tes credits se soldent. Redirige-les au lieu de les reabsorber : c'est le chemin le plus court vers cet objectif.`,
-      gain: `${euro(missing)} atteints en ${months} mois environ, a ${euro(pace + freed.total)} par mois`,
-      gainMonthly: freed.total,
+      title: `${goal.name} : ${longDate(f.date)} si rien ne change`,
+      why: f.capacityNow > 0
+        ? `Tes finances laissent ${euro(f.capacityNow)} de cote ce mois-ci, et ${euro(f.capacitySoon)} dans un an quand des credits seront soldes. Encore faut-il virer cette somme au lieu de la laisser se depenser.`
+        : `Ce mois-ci, rien ne reste (${euro(f.capacityNow)}). La date vient d'apres : chaque credit solde rend sa mensualite, et dans un an ce sont ${euro(f.capacitySoon)} par mois qui pourront partir a l'epargne.`,
+      gain: `${euro(f.missing)} a trouver, soit ${f.months} mois`,
+      gainMonthly: Math.max(0, f.capacityNow),
+      effort: 'duree',
+      target: 'epargne',
+    } : {
+      rank: 4,
+      id: 'objectif',
+      icon: goal.emoji || '⭐',
+      tone: 'warn',
+      title: `${goal.name} n'a pas encore de date`,
+      why: `Une fois les obligations, l'enveloppe de vie et les mensualites payees, il ne reste rien a mettre de cote (${euro(f.capacityNow)} ce mois-ci). Tant que cette ligne ne devient pas positive, aucun objectif d'epargne ne tient.`,
+      gain: `${euro(f.missing)} a trouver, sans date pour l'instant`,
+      gainMonthly: 0,
       effort: 'duree',
       target: 'epargne',
     })
   }
 
   return out.sort((a, b) => a.rank - b.rank || b.gainMonthly - a.gainMonthly)
+}
+
+/* ------------------------------------------------------------------ */
+/* Quand l'objectif tombe : simulation mois par mois                    */
+/* ------------------------------------------------------------------ */
+
+export interface GoalForecast {
+  goal: SavingsGoal
+  missing: number
+  /** Revenu mensuel retenu, supplement simule compris. */
+  income: number
+  /** Ce qui peut etre mis de cote ce mois-ci. */
+  capacityNow: number
+  /** Ce qui pourra l'etre dans un an, une fois des dettes soldees. */
+  capacitySoon: number
+  months: number | null
+  date: ISODate | null
+}
+
+/**
+ * A quelle date l'objectif est atteint, au rythme que les finances permettent.
+ * On simule mois par mois plutot que de diviser : les mensualites s'arretent a
+ * des dates differentes, et chaque dette soldee augmente ce qui reste a mettre
+ * de cote. Une simple division ignorerait cet effet et donnerait une date
+ * beaucoup trop lointaine.
+ */
+export function goalForecast(
+  s: AppState,
+  goal: SavingsGoal,
+  ref: ISODate = todayISO(),
+  extraIncome = 0,
+  horizon = 180,
+): GoalForecast {
+  const income = round2(expectedMonthlyIncome(s, ref) + extraIncome)
+  const fixed = round2(
+    s.obligations.filter((o) => o.recurrence === 'monthly').reduce((a, o) => a + o.amount, 0),
+  )
+  // Les provisions sont lissees sur l'annee : une echeance proche ferait sinon
+  // plonger le premier mois et fausserait toute la suite.
+  const provisions = round2(
+    s.provisions.reduce((a, p) => a + Math.max(0, p.amount - p.saved), 0) / 12,
+  )
+  const debts = activeDebts(s).map((d) => ({
+    bal: d.remainingAmount,
+    pay: d.monthlyPayment || 0,
+    rate: d.rate ?? 0,
+  }))
+
+  let balance = goal.current
+  let capacityNow = 0
+  let capacitySoon = 0
+  let months: number | null = null
+
+  for (let m = 0; m < horizon; m++) {
+    let due = 0
+    for (const d of debts) {
+      if (d.bal <= 0 || d.pay <= 0) continue
+      const interest = d.rate > 0 ? (d.bal * d.rate) / 12 : 0
+      const pay = Math.min(d.pay, d.bal + interest)
+      d.bal = round2(d.bal + interest - pay)
+      if (d.bal < 0.01) d.bal = 0
+      due += pay
+    }
+    const capacity = round2(income - fixed - s.settings.livingBudget - provisions - due)
+    if (m === 0) capacityNow = capacity
+    if (m === 12) capacitySoon = capacity
+    balance = round2(balance + Math.max(0, capacity))
+    if (months === null && balance >= goal.target) months = m + 1
+  }
+
+  return {
+    goal,
+    missing: round2(Math.max(0, goal.target - goal.current)),
+    income,
+    capacityNow,
+    capacitySoon: capacitySoon || capacityNow,
+    months,
+    date: months === null ? null : addMonths(ref, months),
+  }
 }
