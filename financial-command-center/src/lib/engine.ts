@@ -1,4 +1,5 @@
 import type {
+  Account,
   AppState,
   Deadline,
   DeadlinePriority,
@@ -38,16 +39,72 @@ export function txCashEffect(tx: Transaction): number {
   return tx.kind === 'ajustement' ? tx.amount : -Math.abs(tx.amount)
 }
 
-export function bankBalance(s: AppState, ref: ISODate = todayISO()): number {
-  const from = s.settings.openingBalanceDate
-  let total = s.settings.openingBalance
+/** Le compte propose par defaut, et celui qui recoit les mouvements orphelins. */
+export function primaryAccount(s: AppState): Account | undefined {
+  return s.accounts.find((a) => a.primary) ?? s.accounts[0]
+}
+
+/** Le compte d'un mouvement : celui qui est renseigne, sinon le principal. */
+function accountOf(s: AppState, accountId?: string): Account | undefined {
+  if (accountId) {
+    const found = s.accounts.find((a) => a.id === accountId)
+    if (found) return found
+  }
+  return primaryAccount(s)
+}
+
+export function accountBalance(s: AppState, accountId: string, ref: ISODate = todayISO()): number {
+  const account = s.accounts.find((a) => a.id === accountId)
+  if (!account) return 0
+  let total = account.openingBalance
   for (const i of s.incomes) {
-    if (i.status === 'encaisse' && i.date >= from && i.date <= ref) total += i.amount
+    if (i.status !== 'encaisse') continue
+    if (accountOf(s, i.accountId)?.id !== accountId) continue
+    if (i.date >= account.openingBalanceDate && i.date <= ref) total += i.amount
   }
   for (const t of s.transactions) {
-    if (t.date >= from && t.date <= ref) total += txCashEffect(t)
+    if (accountOf(s, t.accountId)?.id !== accountId) continue
+    if (t.date >= account.openingBalanceDate && t.date <= ref) total += txCashEffect(t)
   }
   return round2(total)
+}
+
+export interface AccountBalance {
+  account: Account
+  balance: number
+  /** Sous le decouvert autorise : la banque facture des incidents. */
+  breached: boolean
+  negative: boolean
+}
+
+export function accountBalances(s: AppState, ref: ISODate = todayISO()): AccountBalance[] {
+  return s.accounts.map((account) => {
+    const balance = accountBalance(s, account.id, ref)
+    return {
+      account,
+      balance,
+      negative: balance < 0,
+      breached: balance < -account.overdraftLimit,
+    }
+  })
+}
+
+/**
+ * Le solde bancaire personnel : la somme des comptes qui sont a toi.
+ * Un compte joint en est exclu — son solde n'est pas ton argent disponible.
+ */
+export function bankBalance(s: AppState, ref: ISODate = todayISO()): number {
+  if (s.accounts.length === 0) return 0
+  return round2(
+    accountBalances(s, ref)
+      .filter((a) => !a.account.shared)
+      .reduce((total, a) => total + a.balance, 0),
+  )
+}
+
+/** Les comptes dans le rouge, meme si le total, lui, est positif. */
+export function accountsInTrouble(s: AppState, ref: ISODate = todayISO()): AccountBalance[] {
+  return accountBalances(s, ref).filter((a) => a.negative)
 }
 
 export function savingsTotal(s: AppState): number {
@@ -595,7 +652,14 @@ export function crisisState(s: AppState, ref: ISODate = todayISO()): CrisisState
   const a = availability(s, ref)
   const overdue = overdueObligations(s, ref)
   const reasons: string[] = []
-  if (a.bank < 0) reasons.push(`Compte bancaire a decouvert (${fmtPlain(a.bank)}).`)
+  if (a.bank < 0) reasons.push(`Solde bancaire total a decouvert (${fmtPlain(a.bank)}).`)
+  // Un total positif peut masquer un compte dans le rouge : on le dit.
+  for (const t of accountsInTrouble(s, ref)) {
+    if (a.bank < 0 && s.accounts.length === 1) break
+    reasons.push(
+      `${t.account.name} est a ${fmtPlain(t.balance)}${t.breached ? ', au-dela du decouvert autorise' : ''}.`,
+    )
+  }
   if (overdue.length > 0) reasons.push(`${overdue.length} obligation(s) impayee(s) en retard.`)
   if (a.available < 0) reasons.push(`Engagements des 30 prochains jours superieurs a ton solde.`)
   const auto = reasons.length > 0

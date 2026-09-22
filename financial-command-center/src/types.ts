@@ -9,6 +9,26 @@
 /** Date au format 'YYYY-MM-DD'. */
 export type ISODate = string
 
+/**
+ * Un compte bancaire. Plusieurs comptes changent la lecture : un total
+ * positif peut masquer un compte a decouvert, et chaque prelevement tombe
+ * sur un compte precis.
+ */
+export interface Account {
+  id: string
+  name: string
+  emoji: string
+  openingBalance: number
+  openingBalanceDate: ISODate
+  /** Decouvert autorise, en valeur positive. Au-dela, c'est un incident. */
+  overdraftLimit: number
+  /** Un compte joint : son solde n'est pas ton argent disponible. */
+  shared: boolean
+  /** Compte propose par defaut a la saisie. */
+  primary?: boolean
+  note?: string
+}
+
 export type IncomeStatus = 'prevu' | 'facture' | 'encaisse'
 export type IncomeType = 'mission' | 'acompte' | 'prime' | 'aide' | 'autre'
 
@@ -33,6 +53,8 @@ export interface Income {
   recurring?: boolean
   /** Empreinte de la ligne de releve d'ou vient ce revenu, si importe. */
   importKey?: string
+  /** Compte credite. Non renseigne : le compte principal. */
+  accountId?: string
 }
 
 export type ObligationCategory =
@@ -56,6 +78,8 @@ export interface Obligation {
   recurrence: Recurrence
   paidAt?: ISODate
   note?: string
+  /** Compte sur lequel l'echeance est prelevee. */
+  accountId?: string
 }
 
 export type DebtKind = 'klarna' | 'decouvert' | 'credit' | 'proche' | 'autre'
@@ -77,6 +101,8 @@ export interface Debt {
   rate?: number
   note?: string
   paidAt?: ISODate
+  /** Compte sur lequel la mensualite est prelevee. */
+  accountId?: string
 }
 
 export type TxCategory =
@@ -118,6 +144,8 @@ export interface Transaction {
   split?: boolean
   /** Empreinte de la ligne de releve d'ou vient ce mouvement, si importe. */
   importKey?: string
+  /** Compte debite. Non renseigne : le compte principal. */
+  accountId?: string
 }
 
 /**
@@ -194,6 +222,7 @@ export interface Settings {
 export interface AppState {
   version: number
   settings: Settings
+  accounts: Account[]
   incomes: Income[]
   obligations: Obligation[]
   debts: Debt[]

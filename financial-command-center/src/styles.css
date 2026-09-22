@@ -1419,3 +1419,6 @@ select.cat-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var
   border-color: var(--vie);
   color: #fff;
 }
+
+/* Un nom propre garde son orthographe : seule la categorie se capitalise. */
+.casc-step .tree .n.raw { text-transform: none; }

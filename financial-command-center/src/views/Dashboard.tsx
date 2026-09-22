@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import {
   availability, crisisState, healthReport, livingSnapshot, monthlyCascade,
   obligationsDueWithin, overdueObligations, priorityActions, activeDebts, upcomingIncomes,
-  insights, monthPosition, refForMonth, weather,
+  insights, monthPosition, refForMonth, weather, accountBalances,
 } from '../lib/engine'
 import { euro, ratio } from '../lib/money'
 import { longDate, monthLabel, relativeDue, today } from '../lib/dates'
@@ -37,6 +37,8 @@ export function Dashboard({
   const overdue = useMemo(() => overdueObligations(state, ref), [state, ref])
   const nextIncomes = useMemo(() => upcomingIncomes(state, now).slice(0, 3), [state, now])
   const debts = useMemo(() => activeDebts(state), [state])
+  const balances = useMemo(() => accountBalances(state, now), [state, now])
+  const trouble = balances.filter((b) => b.negative)
   const meteo = useMemo(() => weather(state, ref, now), [state, ref, now])
   const facts = useMemo(() => insights(state, ref, now), [state, ref, now])
 
@@ -200,9 +202,13 @@ export function Dashboard({
         </div>
         <div className="grid k3">
           <Stat
-            label="Solde bancaire"
+            label={state.accounts.length > 1 ? 'Solde bancaire total' : 'Solde bancaire'}
             value={euro(avail.bank)}
-            hint={<button className="linkish" onClick={onBalance}>Mettre a jour</button>}
+            hint={
+              state.accounts.length > 1
+                ? <button className="linkish" onClick={() => go('comptes')}>{state.accounts.length} comptes</button>
+                : <button className="linkish" onClick={onBalance}>Mettre a jour</button>
+            }
             accent={avail.bank < 0 ? 'critical' : undefined}
           />
           <Stat
@@ -222,6 +228,41 @@ export function Dashboard({
           />
         </div>
       </div>
+
+      {state.accounts.length > 1 && (
+        <Card
+          title="Repartition par compte"
+          flush
+          action={<button className="btn sm ghost" onClick={() => go('comptes')}>Gerer</button>}
+        >
+          <div className="list">
+            {balances.map(({ account, balance, negative, breached }) => (
+              <div className="item" key={account.id}>
+                <span className="avatar" aria-hidden>{account.emoji}</span>
+                <div className="main-col">
+                  <div className="title">{account.name}</div>
+                  <div className="sub">
+                    {account.shared
+                      ? 'Compte joint \u2014 hors solde personnel'
+                      : breached
+                        ? 'Au-dela du decouvert autorise'
+                        : account.primary ? 'Compte principal' : 'Compte personnel'}
+                  </div>
+                </div>
+                <span className={`amount ${negative ? 'neg' : ''}`}>{euro(balance)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {trouble.length > 0 && avail.bank >= 0 && (
+        <Callout tone="critical" icon="&#9888;&#65039;" title="Un compte est dans le rouge">
+          Ton total est positif, mais{' '}
+          {trouble.map((t) => `${t.account.name} est a ${euro(t.balance)}`).join(' et ')}.
+          Les agios se prelevent sur le compte, pas sur le total.
+        </Callout>
+      )}
 
       <section className={`hero ${over ? 'over' : ''}`}>
         <div className="eyebrow">{over ? '\u{1F534} Enveloppe depassee' : '\u{1F49A} Argent pour vivre'}</div>

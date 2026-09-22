@@ -55,7 +55,7 @@ export function CascadeView({ c }: { c: Cascade }) {
               {c.debtLines.slice(0, 5).map((l, i, arr) => (
                 <li key={l.key}>
                   <span className="branch" aria-hidden>{i === arr.length - 1 ? '└──' : '├──'}</span>
-                  <span className="n">{l.label}</span>
+                  <span className="n raw">{l.label}</span>
                   <span className="v">{euro(l.amount)}</span>
                 </li>
               ))}
@@ -72,7 +72,7 @@ export function CascadeView({ c }: { c: Cascade }) {
               {c.provisionLines.slice(0, 5).map((l, i, arr) => (
                 <li key={l.key}>
                   <span className="branch" aria-hidden>{i === arr.length - 1 ? '\u2514\u2500\u2500' : '\u251C\u2500\u2500'}</span>
-                  <span className="n">{l.label}</span>
+                  <span className="n raw">{l.label}</span>
                   <span className="v">{euro(l.amount)}</span>
                 </li>
               ))}

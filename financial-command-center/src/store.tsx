@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  AppState, Deadline, Debt, Income, Obligation, Provision, SavingsGoal, Settings, Transaction,
+  Account, AppState, Deadline, Debt, Income, Obligation, Provision, SavingsGoal,
+  Settings, Transaction,
 } from './types'
 import { load, save, uid, emptyState } from './lib/storage'
 import { addMonths, today } from './lib/dates'
@@ -32,6 +33,9 @@ type Action =
   | { type: 'deadline/upsert'; deadline: Deadline }
   | { type: 'deadline/remove'; id: string }
   | { type: 'deadline/toggle'; id: string; date: string }
+  | { type: 'account/upsert'; account: Account }
+  | { type: 'account/remove'; id: string }
+  | { type: 'account/primary'; id: string }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -81,6 +85,7 @@ function reducer(state: AppState, action: Action): AppState {
       const tx: Transaction = {
         id: uid(), date: action.date, description: target.name, category: 'autre',
         amount: target.amount, kind: 'obligation', obligationId: target.id,
+        accountId: target.accountId,
       }
       return {
         ...state,
@@ -128,6 +133,7 @@ function reducer(state: AppState, action: Action): AppState {
       const tx: Transaction = {
         id: uid(), date: action.date, description: `Remboursement ${target.name}`,
         category: 'dette', amount: pay, kind: 'dette', debtId: target.id,
+        accountId: target.accountId,
       }
       return {
         ...state,
@@ -264,6 +270,49 @@ function reducer(state: AppState, action: Action): AppState {
             ? { ...d, done: !d.done, doneAt: !d.done ? action.date : undefined }
             : d,
         ),
+      }
+
+    case 'account/upsert': {
+      const exists = state.accounts.some((a) => a.id === action.account.id)
+      const accounts = exists
+        ? state.accounts.map((a) => (a.id === action.account.id ? action.account : a))
+        : [...state.accounts, action.account]
+      // Le premier compte cree est forcement le principal.
+      if (!accounts.some((a) => a.primary)) accounts[0].primary = true
+      return { ...state, accounts }
+    }
+
+    case 'account/remove': {
+      if (state.accounts.length <= 1) return state
+      const removed = state.accounts.find((a) => a.id === action.id)
+      if (!removed) return state
+      const accounts = state.accounts.filter((a) => a.id !== action.id)
+      const fallback = accounts.find((a) => a.primary) ?? accounts[0]
+      fallback.primary = true
+      // Les mouvements du compte supprime rejoignent le compte principal
+      // plutot que de disparaitre du solde.
+      return {
+        ...state,
+        accounts,
+        transactions: state.transactions.map((t) =>
+          t.accountId === action.id ? { ...t, accountId: fallback.id } : t,
+        ),
+        incomes: state.incomes.map((i) =>
+          i.accountId === action.id ? { ...i, accountId: fallback.id } : i,
+        ),
+        obligations: state.obligations.map((o) =>
+          o.accountId === action.id ? { ...o, accountId: undefined } : o,
+        ),
+        debts: state.debts.map((d) =>
+          d.accountId === action.id ? { ...d, accountId: undefined } : d,
+        ),
+      }
+    }
+
+    case 'account/primary':
+      return {
+        ...state,
+        accounts: state.accounts.map((a) => ({ ...a, primary: a.id === action.id })),
       }
 
     case 'import/apply': {

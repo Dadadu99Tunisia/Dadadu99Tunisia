@@ -1,4 +1,4 @@
-import type { AppState, SavingsGoal } from '../types'
+import type { Account, AppState, SavingsGoal } from '../types'
 import { today } from './dates'
 
 export const SCHEMA_VERSION = 1
@@ -19,9 +19,23 @@ export function defaultGoals(): SavingsGoal[] {
   ]
 }
 
+export function defaultAccount(balance = 0, date = today()): Account {
+  return {
+    id: uid(),
+    name: 'Compte courant',
+    emoji: '\u{1F3E6}',
+    openingBalance: balance,
+    openingBalanceDate: date,
+    overdraftLimit: 0,
+    shared: false,
+    primary: true,
+  }
+}
+
 export function emptyState(): AppState {
   return {
     version: SCHEMA_VERSION,
+    accounts: [defaultAccount()],
     settings: {
       livingBudget: 1000,
       openingBalance: 0,
@@ -51,6 +65,7 @@ export function normalise(raw: unknown): AppState {
   const r = raw as Partial<AppState>
   const state: AppState = {
     version: SCHEMA_VERSION,
+    accounts: Array.isArray(r.accounts) && r.accounts.length > 0 ? r.accounts : [],
     settings: { ...base.settings, ...(r.settings || {}) },
     incomes: Array.isArray(r.incomes) ? r.incomes : [],
     obligations: Array.isArray(r.obligations) ? r.obligations : [],
@@ -87,6 +102,26 @@ export function normalise(raw: unknown): AppState {
     state.settings.categoryBudgets = {}
   }
   if (!(state.settings.emergencyMonths > 0)) state.settings.emergencyMonths = 3
+
+  // Migration : avant les comptes multiples, le solde d'ouverture vivait dans
+  // les reglages. On le transforme en compte principal, sans rien perdre.
+  if (state.accounts.length === 0) {
+    state.accounts = [
+      defaultAccount(state.settings.openingBalance, state.settings.openingBalanceDate),
+    ]
+  }
+  for (const a of state.accounts) {
+    a.openingBalance = Number(a.openingBalance) || 0
+    a.overdraftLimit = Math.abs(Number(a.overdraftLimit) || 0)
+    a.shared = !!a.shared
+  }
+  // Exactement un compte principal, toujours.
+  if (!state.accounts.some((a) => a.primary)) state.accounts[0].primary = true
+  let seenPrimary = false
+  for (const a of state.accounts) {
+    if (a.primary && seenPrimary) a.primary = false
+    else if (a.primary) seenPrimary = true
+  }
   return state
 }
 

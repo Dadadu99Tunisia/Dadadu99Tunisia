@@ -9,6 +9,7 @@ import {
   provisionsMonthlyTotal, provisionsSaved, refForMonth, savedInMonth,
   savingsHistory, savingsPace, savingsRate, shiftMonth, weather,
   deadlineStakes, deadlinesDueWithin, openDeadlines, overdueDeadlines, yearlyImpact,
+  accountBalance, accountBalances, accountsInTrouble,
 } from './engine'
 import { addDays, addMonths, relativeDue, startOfMonth } from './dates'
 import { parseAmount, round2 } from './money'
@@ -19,11 +20,16 @@ const SOM = startOfMonth(REF)
 
 function base(): AppState {
   const s = emptyState()
-  s.settings.openingBalance = 0
-  s.settings.openingBalanceDate = SOM
   s.settings.livingBudget = 1000
   s.settings.expectedMonthlyIncome = 4000
+  setOpening(s, 0, SOM)
   return s
+}
+
+/** Le solde d'ouverture vit sur le compte, plus dans les reglages. */
+function setOpening(s: AppState, balance: number, date = SOM): void {
+  s.accounts[0].openingBalance = balance
+  s.accounts[0].openingBalanceDate = date
 }
 
 function income(p: Partial<Income>): Income {
@@ -62,7 +68,7 @@ describe('parseAmount', () => {
 describe('solde bancaire', () => {
   it('part du solde d’ouverture et suit le ledger', () => {
     const s = base()
-    s.settings.openingBalance = 500
+    setOpening(s, 500)
     s.incomes = [income({ amount: 4000, date: addDays(SOM, 2) })]
     s.transactions = [tx({ amount: 200, date: addDays(SOM, 3) })]
     expect(bankBalance(s, REF)).toBe(4300)
@@ -76,21 +82,21 @@ describe('solde bancaire', () => {
 
   it('ignore les mouvements anterieurs au solde d’ouverture', () => {
     const s = base()
-    s.settings.openingBalance = 100
+    setOpening(s, 100)
     s.transactions = [tx({ amount: 50, date: addDays(SOM, -5) })]
     expect(bankBalance(s, REF)).toBe(100)
   })
 
   it('accepte un ajustement signe pour recaler le solde reel', () => {
     const s = base()
-    s.settings.openingBalance = 100
+    setOpening(s, 100)
     s.transactions = [tx({ amount: -75, kind: 'ajustement', category: 'autre' })]
     expect(bankBalance(s, REF)).toBe(25)
   })
 
   it('gere un compte negatif', () => {
     const s = base()
-    s.settings.openingBalance = 100
+    setOpening(s, 100)
     s.transactions = [tx({ amount: 450 })]
     expect(bankBalance(s, REF)).toBe(-350)
     expect(crisisState(s, REF).auto).toBe(true)
@@ -162,7 +168,7 @@ describe('enveloppe de vie', () => {
 describe('argent reellement disponible', () => {
   it('ne confond jamais solde bancaire et disponible', () => {
     const s = base()
-    s.settings.openingBalance = 5000
+    setOpening(s, 5000)
     s.obligations = [obligation({ amount: 625, dueDate: addDays(REF, 3) })]
     s.debts = [debt({ remainingAmount: 6000, monthlyPayment: 145 })]
     const a = availability(s, REF)
@@ -175,7 +181,7 @@ describe('argent reellement disponible', () => {
 
   it('distingue les obligations proches de l’encours total', () => {
     const s = base()
-    s.settings.openingBalance = 2000
+    setOpening(s, 2000)
     s.obligations = [
       obligation({ amount: 200, dueDate: addDays(REF, 5) }),
       obligation({ amount: 800, dueDate: addDays(REF, 90) }),
@@ -187,7 +193,7 @@ describe('argent reellement disponible', () => {
 
   it('expose la position nette, epargne comprise', () => {
     const s = base()
-    s.settings.openingBalance = 1000
+    setOpening(s, 1000)
     s.savingsGoals[0].current = 500
     s.debts = [debt({ remainingAmount: 4000, monthlyPayment: 0 })]
     expect(availability(s, REF).netPosition).toBe(1000 + 500 - 4000)
@@ -195,7 +201,7 @@ describe('argent reellement disponible', () => {
 
   it('reste coherent quand le disponible est negatif', () => {
     const s = base()
-    s.settings.openingBalance = 100
+    setOpening(s, 100)
     s.obligations = [obligation({ amount: 625 })]
     const a = availability(s, REF)
     expect(a.available).toBe(100 - 625 - 1000)
@@ -246,7 +252,7 @@ describe('repartition d’un encaissement', () => {
 describe('puis-je me le permettre', () => {
   it('chiffre l’impact avant / apres', () => {
     const s = base()
-    s.settings.openingBalance = 3000
+    setOpening(s, 3000)
     s.transactions = [tx({ amount: 258 })]
     const i = analyseExpense(s, 180, { ref: REF })
     expect(i.livingBefore).toBe(742)
@@ -263,7 +269,7 @@ describe('puis-je me le permettre', () => {
 
   it('signale un disponible negatif meme si l’enveloppe tient', () => {
     const s = base()
-    s.settings.openingBalance = 1000
+    setOpening(s, 1000)
     s.obligations = [obligation({ amount: 900, dueDate: addDays(REF, 3) })]
     const i = analyseExpense(s, 50, { ref: REF })
     expect(i.livingAfter).toBeGreaterThan(0)
@@ -400,7 +406,7 @@ describe('revenus', () => {
 describe('score de sante', () => {
   it('reste borne entre 0 et 100', () => {
     const bad = base()
-    bad.settings.openingBalance = -800
+    setOpening(bad, -800)
     bad.obligations = [obligation({ dueDate: addDays(REF, -20) })]
     bad.debts = [debt({ remainingAmount: 20000, monthlyPayment: 1500 })]
     bad.transactions = [tx({ amount: 1400 })]
@@ -414,7 +420,7 @@ describe('score de sante', () => {
 
   it('recompense une situation saine', () => {
     const s = base()
-    s.settings.openingBalance = 6000
+    setOpening(s, 6000)
     s.savingsGoals[0].current = 3000
     const r = healthReport(s, REF)
     expect(r.score).toBeGreaterThanOrEqual(75)
@@ -430,7 +436,7 @@ describe('score de sante', () => {
 describe('mode stabilisation', () => {
   it('s’active tout seul et se laisse forcer', () => {
     const s = base()
-    s.settings.openingBalance = -50
+    setOpening(s, -50)
     expect(crisisState(s, REF).active).toBe(true)
     s.settings.crisisMode = 'off'
     expect(crisisState(s, REF).active).toBe(false)
@@ -440,7 +446,7 @@ describe('mode stabilisation', () => {
 
   it('reste inactif quand tout va bien', () => {
     const s = base()
-    s.settings.openingBalance = 5000
+    setOpening(s, 5000)
     expect(crisisState(s, REF).auto).toBe(false)
   })
 })
@@ -448,7 +454,7 @@ describe('mode stabilisation', () => {
 describe('comportement', () => {
   it('compare le mois en cours au precedent', () => {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.transactions = [
       tx({ amount: 100, date: REF, category: 'shopping' }),
       tx({ amount: 50, date: addDays(REF, -1), category: 'restaurant' }),
@@ -480,7 +486,7 @@ describe('comportement', () => {
 describe('projection', () => {
   it('etale l’enveloppe de vie et honore les echeances', () => {
     const s = base()
-    s.settings.openingBalance = 3000
+    setOpening(s, 3000)
     s.settings.safetyBuffer = 0
     s.obligations = [obligation({ amount: 600, dueDate: addDays(REF, 5), recurrence: 'none' })]
     const r = project(s, 30, REF)
@@ -493,7 +499,7 @@ describe('projection', () => {
 
   it('detecte le premier jour de tresorerie negative', () => {
     const s = base()
-    s.settings.openingBalance = 200
+    setOpening(s, 200)
     s.obligations = [obligation({ amount: 500, dueDate: addDays(REF, 3) })]
     const r = project(s, 30, REF)
     expect(r.firstNegative).toBeDefined()
@@ -502,7 +508,7 @@ describe('projection', () => {
 
   it('amortit les dettes jusqu’a zero sans passer en negatif', () => {
     const s = base()
-    s.settings.openingBalance = 50000
+    setOpening(s, 50000)
     s.debts = [debt({ remainingAmount: 300, monthlyPayment: 100, dueDay: 5 })]
     const r = project(s, 180, REF)
     expect(r.endDebt).toBe(0)
@@ -512,7 +518,7 @@ describe('projection', () => {
 
   it('projette les revenus recurrents', () => {
     const s = base()
-    s.settings.openingBalance = 1000
+    setOpening(s, 1000)
     s.incomes = [income({ amount: 4000, date: addDays(SOM, 4), recurring: true })]
     const r = project(s, 90, REF)
     expect(r.totalIncome).toBe(12000) // octobre, novembre, decembre
@@ -520,7 +526,7 @@ describe('projection', () => {
 
   it('projette un encaissement date en avant, absent du solde', () => {
     const s = base()
-    s.settings.openingBalance = 1000
+    setOpening(s, 1000)
     // Encaisse mais date dans 5 jours : ni dans le solde, ni oublie.
     s.incomes = [income({ amount: 3000, status: 'encaisse', date: addDays(REF, 5) })]
     expect(bankBalance(s, REF)).toBe(1000)
@@ -542,7 +548,7 @@ describe('projection', () => {
 
   it('bascule l’excedent vers l’epargne en fin de mois', () => {
     const s = base()
-    s.settings.openingBalance = 10000
+    setOpening(s, 10000)
     s.settings.safetyBuffer = 1000
     const r = project(s, 40, REF)
     expect(r.endSavings).toBeGreaterThan(0)
@@ -554,7 +560,7 @@ describe('projection', () => {
 
   it('n\u2019epargne pas ce dont le mois suivant a besoin', () => {
     const s = base()
-    s.settings.openingBalance = 8000
+    setOpening(s, 8000)
     s.settings.safetyBuffer = 500
     // Le revenu tombe le 20 : le debut de mois doit etre finance d'avance.
     s.incomes = [income({ amount: 4000, date: addDays(SOM, 19), recurring: true })]
@@ -568,7 +574,7 @@ describe('projection', () => {
 
   it('signale quand meme un vrai trou de tresorerie', () => {
     const s = base()
-    s.settings.openingBalance = 200
+    setOpening(s, 200)
     s.settings.safetyBuffer = 0
     s.obligations = [obligation({ amount: 3000, dueDate: addDays(REF, 10), recurrence: 'none' })]
     const r = project(s, 60, REF)
@@ -577,7 +583,7 @@ describe('projection', () => {
 
   it('impute une echeance en retard au lieu de la perdre', () => {
     const s = base()
-    s.settings.openingBalance = 5000
+    setOpening(s, 5000)
     s.obligations = [obligation({ amount: 800, dueDate: addDays(REF, -12), recurrence: 'none' })]
     const r = project(s, 30, REF)
     expect(r.totalObligations).toBe(800)
@@ -586,7 +592,7 @@ describe('projection', () => {
 
   it('tient un horizon de 6 mois sans exploser', () => {
     const s = base()
-    s.settings.openingBalance = 2000
+    setOpening(s, 2000)
     s.obligations = [obligation({ amount: 625, dueDate: addDays(REF, 2), recurrence: 'monthly' })]
     s.debts = [debt({ remainingAmount: 6000, monthlyPayment: 145, dueDay: 2 })]
     const r = project(s, 180, REF)
@@ -727,7 +733,7 @@ describe('navigation dans les mois', () => {
 
   it('un mois clos affiche ce qui a ete depense, pas un budget restant a vivre', () => {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.transactions = [tx({ amount: 820, date: '2026-08-12' })]
     const l = livingSnapshot(s, refForMonth('2026-08', REF))
     expect(l.spent).toBe(820)
@@ -796,7 +802,7 @@ describe('provisions', () => {
 describe('epargne', () => {
   it('mesure ce qui a ete mis de cote sur un mois', () => {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.transactions = [
       tx({ amount: 300, kind: 'epargne', category: 'epargne', date: addDays(SOM, 3) }),
       tx({ amount: 200, kind: 'epargne', category: 'epargne', date: addDays(SOM, 9) }),
@@ -818,7 +824,7 @@ describe('epargne', () => {
 
   it('moyenne le rythme sur les mois revolus', () => {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.transactions = [
       tx({ amount: 300, kind: 'epargne', category: 'epargne', date: '2026-08-10' }),
       tx({ amount: 600, kind: 'epargne', category: 'epargne', date: '2026-07-10' }),
@@ -856,7 +862,7 @@ describe('fonds de precaution', () => {
 
   it('estime le delai au rythme actuel', () => {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.savingsGoals[0].current = 1000
     s.transactions = [tx({ amount: 900, kind: 'epargne', category: 'epargne', date: '2026-08-05' })]
     const e = emergencyFund(s, REF)
@@ -956,7 +962,7 @@ describe('meteo du mois', () => {
 describe('faits marquants', () => {
   it('ne renvoie jamais plus de trois cartes', () => {
     const s = base()
-    s.settings.openingBalance = -100
+    setOpening(s, -100)
     s.obligations = [obligation({ dueDate: addDays(REF, -3) }), obligation({ dueDate: addDays(REF, 2) })]
     s.settings.categoryBudgets = { shopping: 50 }
     s.transactions = [tx({ amount: 400, category: 'shopping' })]
@@ -1011,7 +1017,7 @@ describe('lecture d’un mois clos ou a venir', () => {
 
   function withAugust(): AppState {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.transactions = [tx({ amount: 640, date: '2026-08-12' })]
     return s
   }
@@ -1024,7 +1030,7 @@ describe('lecture d’un mois clos ou a venir', () => {
 
   it('signale un mois termine en depassement', () => {
     const s = base()
-    s.settings.openingBalanceDate = '2026-01-01'
+    setOpening(s, s.accounts[0].openingBalance, '2026-01-01')
     s.transactions = [tx({ amount: 1300, date: '2026-08-12' })]
     const w = weather(s, AOUT, REF)
     expect(w.level).toBe('depasse')
@@ -1161,5 +1167,95 @@ describe('echeance remontee au tableau de bord', () => {
     const s = base()
     s.deadlines = [dl({})]
     expect(insights(s, refForMonth('2026-08', REF), REF).some((i) => i.id.startsWith('deadline-'))).toBe(false)
+  })
+})
+
+describe('plusieurs comptes bancaires', () => {
+  function twoAccounts(): AppState {
+    const s = base()
+    s.accounts = [
+      { id: 'cm', name: 'Credit Mutuel', emoji: '\u{1F3E6}', openingBalance: 2000,
+        openingBalanceDate: SOM, overdraftLimit: 0, shared: false, primary: true },
+      { id: 'ca', name: 'Credit Agricole', emoji: '\u{1F4B3}', openingBalance: -500,
+        openingBalanceDate: SOM, overdraftLimit: 300, shared: false },
+    ]
+    return s
+  }
+
+  it('calcule chaque solde separement', () => {
+    const s = twoAccounts()
+    s.transactions = [
+      tx({ amount: 100, accountId: 'cm' }),
+      tx({ amount: 40, accountId: 'ca' }),
+    ]
+    expect(accountBalance(s, 'cm', REF)).toBe(1900)
+    expect(accountBalance(s, 'ca', REF)).toBe(-540)
+  })
+
+  it('additionne les comptes personnels dans le solde total', () => {
+    expect(bankBalance(twoAccounts(), REF)).toBe(1500)
+  })
+
+  it('voit le compte dans le rouge meme quand le total est positif', () => {
+    const s = twoAccounts()
+    expect(bankBalance(s, REF)).toBeGreaterThan(0)
+    const trouble = accountsInTrouble(s, REF)
+    expect(trouble).toHaveLength(1)
+    expect(trouble[0].account.name).toBe('Credit Agricole')
+    expect(trouble[0].breached).toBe(true) // -500 sous un decouvert autorise de 300
+  })
+
+  it('distingue un decouvert autorise d’un incident', () => {
+    const s = twoAccounts()
+    s.accounts[1].openingBalance = -200
+    const ca = accountBalances(s, REF).find((a) => a.account.id === 'ca')!
+    expect(ca.negative).toBe(true)
+    expect(ca.breached).toBe(false)
+  })
+
+  it('declenche le mode stabilisation sur un compte seul dans le rouge', () => {
+    const s = twoAccounts()
+    const c = crisisState(s, REF)
+    expect(c.auto).toBe(true)
+    expect(c.reasons.some((r) => r.includes('Credit Agricole'))).toBe(true)
+  })
+
+  it('exclut un compte joint du solde personnel', () => {
+    const s = twoAccounts()
+    s.accounts.push({
+      id: 'commun', name: 'Compte commun', emoji: '\u{1F465}', openingBalance: 900,
+      openingBalanceDate: SOM, overdraftLimit: 0, shared: true,
+    })
+    expect(bankBalance(s, REF)).toBe(1500) // le joint n'entre pas
+    expect(accountBalance(s, 'commun', REF)).toBe(900)
+  })
+
+  it('rattache au compte principal un mouvement sans compte', () => {
+    const s = twoAccounts()
+    s.transactions = [tx({ amount: 250 })] // pas d'accountId
+    expect(accountBalance(s, 'cm', REF)).toBe(1750)
+    expect(accountBalance(s, 'ca', REF)).toBe(-500)
+  })
+
+  it('respecte la date d’ouverture propre a chaque compte', () => {
+    const s = twoAccounts()
+    s.accounts[1].openingBalanceDate = REF
+    s.transactions = [tx({ amount: 60, accountId: 'ca', date: addDays(REF, -5) })]
+    expect(accountBalance(s, 'ca', REF)).toBe(-500) // anterieur a l'ouverture
+  })
+
+  it('cree le revenu sur le bon compte', () => {
+    const s = twoAccounts()
+    s.incomes = [income({ amount: 4000, accountId: 'ca' })]
+    expect(accountBalance(s, 'ca', REF)).toBe(3500)
+    expect(bankBalance(s, REF)).toBe(5500)
+  })
+
+  it('reste compatible avec un cockpit a un seul compte', () => {
+    const s = base()
+    setOpening(s, 1200)
+    s.transactions = [tx({ amount: 200 })]
+    expect(bankBalance(s, REF)).toBe(1000)
+    expect(accountsInTrouble(s, REF)).toHaveLength(0)
   })
 })

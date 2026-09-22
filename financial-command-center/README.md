@@ -46,6 +46,7 @@ encaissement (« Que veux-tu faire de cet argent ? »).
 | Module | Role |
 |---|---|
 | **Tableau de bord** | Meteo du mois, faits marquants, solde, disponible reel, reserve, dettes, epargne, position nette, enveloppe de vie et cascade |
+| **Comptes** | Un solde par compte, decouvert autorise, comptes joints exclus du disponible |
 | **Budget type** | Repartition prevue de l'enveloppe de vie par categorie, comparee au reel |
 | **Echeances** | Demarches fiscales et administratives datees, avec leur enjeu chiffre |
 | **Revenus** | Prevu / facture / encaisse, revenus recurrents, repartition guidee a l'encaissement |
@@ -98,6 +99,21 @@ le rythme moyen sur trois mois et le delai estime pour atteindre la cible.
 Une repartition prevue de l'enveloppe de vie par categorie, comparee au reel
 de chaque mois. Elle ne bloque rien : le seul plafond ferme reste l'enveloppe
 globale. Trois repartitions de depart evitent la page blanche.
+
+### Plusieurs comptes bancaires
+
+Chaque compte a son solde, sa date d'ouverture et son decouvert autorise, et
+chaque mouvement se rattache a un compte (sans precision : le compte
+principal). Le solde personnel additionne les comptes qui sont a toi ; un
+compte joint apparait mais reste dehors, puisque son solde n'est pas le tien.
+
+L'interet n'est pas cosmetique : **un total positif peut masquer un compte
+dans le rouge**, et les agios se prelevent sur le compte, pas sur le total.
+Le cockpit le dit explicitement, et le mode stabilisation se declenche sur un
+seul compte a decouvert meme quand la somme reste positive.
+
+Supprimer un compte rebascule ses mouvements sur le compte principal : un
+solde n'est jamais perdu par accident.
 
 ### Echeances administratives
 
@@ -168,9 +184,10 @@ locales -- perdue en silence.
 - Le dossier `donnees/` et les fichiers `*.fcc.json` sont volontairement
   exclus du depot : **aucune donnee personnelle n'est versionnee ici.**
 
-Le solde bancaire n'est pas saisi librement : il est derive d'un solde
-d'ouverture et de tous les mouvements. Un ecart avec la banque se corrige par
-un ajustement date, ce qui garde l'historique vrai.
+Le solde d'un compte n'est pas saisi librement : il est derive de son solde
+d'ouverture et des mouvements qui lui sont rattaches. Un ecart avec la banque
+se corrige par un ajustement date sur ce compte, ce qui garde l'historique
+vrai.
 
 ---
 
@@ -181,7 +198,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 153 tests : moteur de calcul et import bancaire
+npm test           # 163 tests : moteur de calcul et import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de
@@ -198,7 +215,7 @@ src/
     engine.ts         tous les calculs derives — aucune logique metier ailleurs
     engine.test.ts    cas limites : mois sans revenu, depassement, dette
                       partielle, recurrences, fractionnes, projection,
-                      provisions, echeances, mois clos, meteo
+                      provisions, echeances, comptes multiples, mois clos, meteo
     bankImport.ts     lecture des releves CSV / OFX / QIF, categorisation,
                       detection des doublons
     bankImport.test.ts formats reels des banques francaises

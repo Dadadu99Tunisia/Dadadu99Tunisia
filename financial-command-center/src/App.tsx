@@ -15,6 +15,7 @@ import { Habits } from './views/Habits'
 import { Settings } from './views/Settings'
 import { Budget } from './views/Budget'
 import { Deadlines } from './views/Deadlines'
+import { Accounts } from './views/Accounts'
 import { ToastProvider } from './components/Toast'
 import { ExpenseModal } from './modals/ExpenseModal'
 import { IncomeModal } from './modals/IncomeModal'
@@ -28,6 +29,7 @@ const CRISIS_HIDDEN: View[] = ['habitudes', 'projection', 'epargne', 'budget']
 
 const TITLES: Record<View, string> = {
   dashboard: 'Tableau de bord',
+  comptes: 'Mes comptes',
   revenus: 'Revenus',
   depenses: 'Depenses',
   obligations: 'Obligations',
@@ -118,6 +120,7 @@ function Shell() {
               onBalance={() => setBalance(true)}
             />
           )}
+          {view === 'comptes' && <Accounts />}
           {view === 'revenus' && <Incomes />}
           {view === 'depenses' && <Expenses />}
           {view === 'obligations' && <Obligations />}

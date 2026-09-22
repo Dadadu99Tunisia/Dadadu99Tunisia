@@ -1,5 +1,5 @@
 export type View =
-  | 'dashboard' | 'revenus' | 'depenses' | 'obligations' | 'dettes' | 'budget'
+  | 'dashboard' | 'comptes' | 'revenus' | 'depenses' | 'obligations' | 'dettes' | 'budget'
   | 'epargne' | 'calendrier' | 'projection' | 'sante' | 'habitudes' | 'echeances'
   | 'reglages'
 
@@ -8,6 +8,7 @@ interface Entry { view: View; label: string; icon: string; group: string }
 /** Regroupe par intention, pas par type de donnee. */
 export const ENTRIES: Entry[] = [
   { view: 'dashboard',   label: 'Tableau de bord', icon: '\u{1F3E0}', group: 'Piloter' },
+  { view: 'comptes',     label: 'Comptes',         icon: '\u{1F3E6}', group: 'Piloter' },
   { view: 'revenus',     label: 'Revenus',         icon: '\u{1F4B0}', group: 'Construire' },
   { view: 'obligations', label: 'Obligations',     icon: '\u{1F4C5}', group: 'Construire' },
   { view: 'budget',      label: 'Budget type',     icon: '\u{1F967}', group: 'Construire' },

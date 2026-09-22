@@ -6,6 +6,7 @@ import { euro, parseAmount } from '../lib/money'
 import { today } from '../lib/dates'
 import { uid } from '../lib/storage'
 import { AmountInput, Callout, ConfirmButton, Field, Modal, Segmented, Switch, useAmount } from '../components/ui'
+import { AccountPicker } from '../views/Accounts'
 
 const TYPES: { value: IncomeType; label: string }[] = [
   { value: 'mission', label: 'Mission' },
@@ -23,6 +24,7 @@ export function IncomeModal({ onClose, initial }: { onClose: () => void; initial
   const [type, setType] = useState<IncomeType>(initial?.type ?? 'mission')
   const [status, setStatus] = useState<IncomeStatus>(initial?.status ?? 'prevu')
   const [recurring, setRecurring] = useState(!!initial?.recurring)
+  const [accountId, setAccountId] = useState<string | undefined>(initial?.accountId)
   const [allocate, setAllocate] = useState(false)
 
   const income: Income | null = amount.valid
@@ -31,6 +33,7 @@ export function IncomeModal({ onClose, initial }: { onClose: () => void; initial
       date, client: client.trim(), amount: amount.value, type, status,
       recurring: recurring || undefined,
       allocation: initial?.allocation,
+      accountId,
     }
     : null
 
@@ -93,6 +96,8 @@ export function IncomeModal({ onClose, initial }: { onClose: () => void; initial
           ]}
         />
       </Field>
+
+      <AccountPicker value={accountId} onChange={setAccountId} label="Compte credite" />
 
       <Switch
         checked={recurring}

@@ -10,6 +10,7 @@ import { euro } from '../lib/money'
 import { shortDate } from '../lib/dates'
 import { uid } from '../lib/storage'
 import { Callout, Field, Modal, Segmented } from '../components/ui'
+import { AccountPicker } from '../views/Accounts'
 
 const CATEGORIES = Object.keys(TX_CATEGORY_LABELS) as TxCategory[]
 
@@ -29,6 +30,9 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const [filename, setFilename] = useState('')
   const [filter, setFilter] = useState<'tout' | 'sorties' | 'entrees'>('tout')
   const [done, setDone] = useState<{ tx: number; inc: number } | null>(null)
+  const [accountId, setAccountId] = useState<string | undefined>(
+    state.accounts.find((a) => a.primary)?.id ?? state.accounts[0]?.id,
+  )
 
   const existingKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -84,13 +88,13 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       if (r.amount > 0) {
         incomes.push({
           id: uid(), date: r.date, client: r.label, amount: r.amount,
-          type: 'autre', status: 'encaisse', importKey: r.key,
+          type: 'autre', status: 'encaisse', importKey: r.key, accountId,
         })
       } else {
         transactions.push({
           id: uid(), date: r.date, description: r.label,
           category: r.category, amount: Math.abs(r.amount),
-          kind: r.kind, importKey: r.key,
+          kind: r.kind, importKey: r.key, accountId,
         })
       }
     }
@@ -107,6 +111,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
         onClose={onClose}
         footer={<button className="btn ghost block" onClick={onClose}>Fermer</button>}
       >
+        <AccountPicker value={accountId} onChange={setAccountId} label="Releve de quel compte ?" />
+
         <button className="dropzone" onClick={() => fileRef.current?.click()}>
           <span className="ico" aria-hidden>&#128194;</span>
           <strong>Choisir un fichier</strong>

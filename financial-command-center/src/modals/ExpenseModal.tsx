@@ -7,6 +7,7 @@ import { euro, percent, round2 } from '../lib/money'
 import { today, longDate } from '../lib/dates'
 import { uid } from '../lib/storage'
 import { AmountInput, Callout, Field, Modal, Switch, useAmount } from '../components/ui'
+import { AccountPicker } from '../views/Accounts'
 
 const CATEGORIES = Object.keys(TX_CATEGORY_LABELS) as TxCategory[]
 
@@ -28,6 +29,7 @@ export function ExpenseModal({
   const [category, setCategory] = useState<TxCategory>(initial?.category ?? 'shopping')
   const [date, setDate] = useState(initial?.date ?? today())
   const [split, setSplit] = useState(!!initial?.split)
+  const [accountId, setAccountId] = useState<string | undefined>(initial?.accountId)
   const [installments, setInstallments] = useState(3)
   const [step, setStep] = useState<'form' | 'impact'>(editing ? 'form' : 'form')
 
@@ -52,6 +54,7 @@ export function ExpenseModal({
       amount: amount.value,
       kind: initial?.kind ?? (countsAsLiving ? 'vie' : category === 'epargne' ? 'epargne' : 'obligation'),
       split: split || undefined,
+      accountId,
     }
     dispatch({ type: 'tx/upsert', tx })
 
@@ -129,6 +132,8 @@ export function ExpenseModal({
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
           </div>
+
+          <AccountPicker value={accountId} onChange={setAccountId} label="Compte debite" />
 
           {!countsAsLiving && (
             <p className="fine">

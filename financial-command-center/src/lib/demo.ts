@@ -14,8 +14,23 @@ export function demoState(): AppState {
   goals[0].current = 450
   goals[2].current = 120
 
+  const courant = uid()
+  const secondaire = uid()
+
   return {
     version: SCHEMA_VERSION,
+    accounts: [
+      {
+        id: courant, name: 'Banque principale', emoji: '\u{1F3E6}',
+        openingBalance: 2600, openingBalanceDate: som,
+        overdraftLimit: 0, shared: false, primary: true,
+      },
+      {
+        id: secondaire, name: 'Second compte', emoji: '\u{1F4B3}',
+        openingBalance: -180, openingBalanceDate: som,
+        overdraftLimit: 300, shared: false,
+      },
+    ],
     settings: {
       livingBudget: 1000,
       openingBalance: 2600,

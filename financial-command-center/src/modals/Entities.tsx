@@ -2,10 +2,12 @@ import { useRef, useState } from 'react'
 import { useStore } from '../store'
 import { OBLIGATION_CATEGORY_LABELS, DEBT_KIND_LABELS } from '../types'
 import type { Debt, DebtKind, DebtPriority, Obligation, ObligationCategory, Recurrence, SavingsGoal } from '../types'
-import { euro } from '../lib/money'
+import { euro, round2 } from '../lib/money'
+import { accountBalance } from '../lib/engine'
 import { today } from '../lib/dates'
 import { uid } from '../lib/storage'
 import { AmountInput, Callout, ConfirmButton, Field, Modal, Segmented, useAmount } from '../components/ui'
+import { AccountPicker } from '../views/Accounts'
 import { prepareImage } from '../lib/image'
 
 const OBL_CATS = Object.keys(OBLIGATION_CATEGORY_LABELS) as ObligationCategory[]
@@ -18,6 +20,7 @@ export function ObligationModal({ onClose, initial }: { onClose: () => void; ini
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? today())
   const [category, setCategory] = useState<ObligationCategory>(initial?.category ?? 'urssaf')
   const [recurrence, setRecurrence] = useState<Recurrence>(initial?.recurrence ?? 'monthly')
+  const [accountId, setAccountId] = useState<string | undefined>(initial?.accountId)
 
   function save() {
     if (!amount.valid || !name.trim()) return
@@ -32,6 +35,7 @@ export function ObligationModal({ onClose, initial }: { onClose: () => void; ini
         recurrence,
         status: initial?.status ?? 'a_payer',
         paidAt: initial?.paidAt,
+        accountId,
       },
     })
     onClose()
@@ -67,6 +71,8 @@ export function ObligationModal({ onClose, initial }: { onClose: () => void; ini
           {OBL_CATS.map((c) => <option key={c} value={c}>{OBLIGATION_CATEGORY_LABELS[c]}</option>)}
         </select>
       </Field>
+      <AccountPicker value={accountId} onChange={setAccountId} label="Compte preleve" />
+
       <Field label="Recurrence" hint="Une obligation recurrente reapparait automatiquement une fois reglee.">
         <Segmented
           value={recurrence}
@@ -95,6 +101,7 @@ export function DebtModal({ onClose, initial }: { onClose: () => void; initial?:
   const [dueDay, setDueDay] = useState(initial?.dueDay ?? 5)
   const [priority, setPriority] = useState<DebtPriority>(initial?.priority ?? 'moyenne')
   const [kind, setKind] = useState<DebtKind>(initial?.kind ?? 'credit')
+  const [debtAccountId, setDebtAccountId] = useState<string | undefined>(initial?.accountId)
 
   function save() {
     if (!remaining.valid || !name.trim()) return
@@ -116,6 +123,7 @@ export function DebtModal({ onClose, initial }: { onClose: () => void; initial?:
         installmentsTotal: initial?.installmentsTotal,
         installmentsPaid: initial?.installmentsPaid,
         rate: initial?.rate,
+        accountId: debtAccountId,
       },
     })
     onClose()
@@ -159,6 +167,8 @@ export function DebtModal({ onClose, initial }: { onClose: () => void; initial?:
           {DEBT_KINDS.map((k) => <option key={k} value={k}>{DEBT_KIND_LABELS[k]}</option>)}
         </select>
       </Field>
+      <AccountPicker value={debtAccountId} onChange={setDebtAccountId} label="Compte preleve" />
+
       <Field label="Priorite">
         <Segmented
           value={priority}
@@ -370,41 +380,38 @@ export function GoalDepositModal({ goal, onClose }: { goal: SavingsGoal; onClose
 
 export function BalanceModal({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = useStore()
+  const primary = state.accounts.find((a) => a.primary) ?? state.accounts[0]
+  const [accountId, setAccountId] = useState(primary?.id)
+  const account = state.accounts.find((a) => a.id === accountId) ?? primary
   const [raw, setRaw] = useState('')
   const parsed = Number(raw.replace(/\s| /g, '').replace(',', '.'))
   const valid = raw.trim() !== '' && Number.isFinite(parsed)
 
   function save() {
-    if (!valid) return
-    // Premier reglage : on pose le solde d'ouverture. Ensuite : on recale via un
-    // ajustement, pour que l'historique des mouvements reste vrai.
-    const hasLedger = state.incomes.length > 0 || state.transactions.length > 0
-    if (!hasLedger) {
-      dispatch({ type: 'settings', patch: { openingBalance: parsed, openingBalanceDate: today() } })
+    if (!valid || !account) return
+    const movements =
+      state.incomes.some((i) => i.status === 'encaisse') || state.transactions.length > 0
+    if (!movements) {
+      // Premier reglage : on pose simplement le solde d'ouverture du compte.
+      dispatch({
+        type: 'account/upsert',
+        account: { ...account, openingBalance: parsed, openingBalanceDate: today() },
+      })
     } else {
-      const current = balanceNow()
-      const delta = Math.round((parsed - current) * 100) / 100
+      // Ensuite on recale par un ajustement date, pour que l'historique des
+      // mouvements reste vrai.
+      const delta = round2(parsed - accountBalance(state, account.id, today()))
       if (delta !== 0) {
         dispatch({
           type: 'tx/upsert',
           tx: {
-            id: uid(), date: today(), description: 'Recalage du solde reel',
-            category: 'autre', amount: delta, kind: 'ajustement',
+            id: uid(), date: today(), description: `Recalage \u2014 ${account.name}`,
+            category: 'autre', amount: delta, kind: 'ajustement', accountId: account.id,
           },
         })
       }
     }
     onClose()
-  }
-
-  function balanceNow(): number {
-    let t = state.settings.openingBalance
-    for (const i of state.incomes) if (i.status === 'encaisse' && i.date >= state.settings.openingBalanceDate) t += i.amount
-    for (const x of state.transactions) {
-      if (x.date < state.settings.openingBalanceDate) continue
-      t += x.kind === 'ajustement' ? x.amount : -Math.abs(x.amount)
-    }
-    return Math.round(t * 100) / 100
   }
 
   return (
@@ -418,12 +425,23 @@ export function BalanceModal({ onClose }: { onClose: () => void }) {
         </>
       }
     >
+      {state.accounts.length > 1 && (
+        <Field label="Quel compte ?">
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            {state.accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+            ))}
+          </select>
+        </Field>
+      )}
+
       <Field label="Solde affiche par ta banque" hint="Un montant negatif est accepte : le decouvert fait partie du tableau.">
         <input className="num-input" inputMode="decimal" value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="2 450,30" autoFocus />
       </Field>
       <p className="fine">
-        Le cockpit recalcule ensuite ton solde a partir de tes revenus encaisses et de tes
-        depenses. Reviens ici quand l&rsquo;ecart se creuse : un ajustement sera enregistre.
+        Le cockpit recalcule ensuite le solde de {account?.name ?? 'ce compte'} a partir de
+        tes revenus encaisses et de tes depenses. Reviens ici quand l&rsquo;ecart se creuse :
+        un ajustement date sera enregistre.
       </p>
     </Modal>
   )
