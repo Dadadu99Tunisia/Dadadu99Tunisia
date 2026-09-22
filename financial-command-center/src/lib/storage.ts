@@ -128,14 +128,33 @@ export function normalise(raw: unknown): AppState {
   return state
 }
 
+/**
+ * Jeu de donnees initial fourni par la page elle-meme.
+ *
+ * Une page publiee peut poser `window.__COCKPIT_SEED__` pour demarrer avec
+ * des donnees deja en place, au lieu d'un cockpit vide a remplir a la main.
+ * Il ne sert qu'au tout premier chargement : des que le navigateur a sa
+ * propre copie, c'est elle qui fait foi, et les saisies ne sont jamais
+ * ecrasees par le seed.
+ */
+function initialSeed(): AppState | null {
+  const raw = (globalThis as { __COCKPIT_SEED__?: unknown }).__COCKPIT_SEED__
+  if (!raw || typeof raw !== 'object') return null
+  try {
+    return normalise(raw)
+  } catch {
+    return null
+  }
+}
+
 export function load(): AppState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return emptyState()
-    return normalise(JSON.parse(raw))
+    if (raw) return normalise(JSON.parse(raw))
   } catch {
-    return emptyState()
+    // stockage illisible : on repart du seed ou d'un etat vide
   }
+  return initialSeed() ?? emptyState()
 }
 
 export type SaveResult = { ok: true } | { ok: false; reason: 'quota' | 'blocked' }

@@ -189,6 +189,8 @@ Si le compte est a decouvert, si une obligation est en retard, ou si les
 engagements des 30 prochains jours depassent le solde, l'interface se reduit a
 l'essentiel : disponible, obligations urgentes, dettes, budget de vie,
 prochaine rentree, actions prioritaires. Les modules secondaires sont masques.
+L'epargne, elle, reste visible : elle porte les provisions et le fonds de
+precaution, qui comptent d'autant plus quand la situation est tendue.
 
 ---
 
@@ -203,6 +205,15 @@ telechargement, l'export passe par `claude.use('downloads')` et retombe sur
 un lien classique dans un navigateur ordinaire. Sans ce detour, le bouton
 d'export serait inerte et la sauvegarde -- seul filet de securite de donnees
 locales -- perdue en silence.
+
+### Jeu de donnees initial
+
+Une page peut deposer un etat de depart dans `window.__COCKPIT_SEED__` avant
+de charger l'application. Il ne sert **qu'au tout premier chargement** : des
+qu'un etat existe dans `localStorage`, c'est lui qui gagne, toujours. Une
+amorce invalide est ignoree plutot que de casser le demarrage -- ouvrir un
+cockpit vide vaut mieux qu'un ecran blanc. Le depot ne contient aucune
+amorce : c'est a la page publiee d'en fournir une si elle en veut une.
 
 ## Donnees
 
@@ -226,7 +237,7 @@ npm install
 npm run dev        # serveur de developpement
 npm run build      # build de production dans dist/
 npm run preview    # sert le build
-npm test           # 176 tests : moteur de calcul et import bancaire
+npm test           # 180 tests : moteur de calcul, stockage, import bancaire
 ```
 
 Stack : Vite + React + TypeScript, sans dependance d'interface. Les couleurs de
@@ -249,7 +260,8 @@ src/
                       detection des doublons
     bankImport.test.ts formats reels des banques francaises
     image.ts          redimensionnement avant stockage
-    storage.ts        chargement, normalisation, export / import, quota
+    storage.ts        chargement, normalisation, export / import, quota,
+                      amorce `__COCKPIT_SEED__`
     dates.ts money.ts utilitaires
   components/         primitives d'interface, graphiques, cascade, toasts,
                       selecteur de mois

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import type { AppState, Deadline, Debt, Income, Obligation, Provision, Transaction } from '../types'
-import { emptyState, importJSON, uid } from './storage'
+import { emptyState, importJSON, load, uid } from './storage'
 import {
   availability, analyseExpense, bankBalance, behaviourComparison, crisisState,
   debtTotal, expectedMonthlyIncome, healthReport, incomeCascade, livingSnapshot, monthlyCascade, obligationOccurrences,
@@ -1377,5 +1377,54 @@ describe('fin d’une dette', () => {
       debt({ name: 'Courte', remainingAmount: 43.46, monthlyPayment: 21.73 }),
     ]
     expect(nextDebtCleared(s, REF)!.name).toBe('Courte')
+  })
+})
+
+describe('jeu de donnees initial fourni par la page', () => {
+  const KEY = 'cockpit-financier/v1'
+  const g = globalThis as { __COCKPIT_SEED__?: unknown; localStorage?: Storage }
+
+  function fakeStorage(initial: Record<string, string> = {}) {
+    const store = { ...initial }
+    return {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+      removeItem: (k: string) => { delete store[k] },
+      clear: () => { for (const k of Object.keys(store)) delete store[k] },
+      key: () => null, length: 0,
+    } as unknown as Storage
+  }
+
+  afterEach(() => {
+    delete g.__COCKPIT_SEED__
+    delete g.localStorage
+  })
+
+  it('amorce un cockpit vierge avec le seed', () => {
+    g.localStorage = fakeStorage()
+    g.__COCKPIT_SEED__ = { settings: { livingBudget: 1200, ownerName: 'Test' } }
+    const s = load()
+    expect(s.settings.livingBudget).toBe(1200)
+    expect(s.settings.ownerName).toBe('Test')
+    expect(s.accounts).toHaveLength(1) // complete par la normalisation
+  })
+
+  it('ne remplace jamais les donnees deja saisies', () => {
+    const mien = { ...emptyState(), settings: { ...emptyState().settings, ownerName: 'Moi' } }
+    g.localStorage = fakeStorage({ [KEY]: JSON.stringify(mien) })
+    g.__COCKPIT_SEED__ = { settings: { ownerName: 'Seed' } }
+    expect(load().settings.ownerName).toBe('Moi')
+  })
+
+  it('retombe sur un etat vide sans seed', () => {
+    g.localStorage = fakeStorage()
+    expect(load().settings.ownerName).toBe('')
+  })
+
+  it('ignore un seed illisible au lieu de casser', () => {
+    g.localStorage = fakeStorage()
+    g.__COCKPIT_SEED__ = 'pas un objet'
+    expect(() => load()).not.toThrow()
+    expect(load().incomes).toHaveLength(0)
   })
 })
