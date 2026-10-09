@@ -1,0 +1,198 @@
+1
+00:00:05,200 --> 00:00:09,698
+Dans le travail juridique,
+l'intelligence ne suffit pas.
+
+2
+00:00:10,248 --> 00:00:14,969
+La manière dont on traite l'information
+compte tout autant.
+
+3
+00:00:22,000 --> 00:00:26,054
+Un dossier n'est pas
+une simple pile de documents.
+
+4
+00:00:26,604 --> 00:00:32,213
+C'est un réseau de faits, de pièces,
+d'arguments et de responsabilités.
+
+5
+00:00:32,763 --> 00:00:38,594
+Une même date peut changer d'une pièce à l'autre.
+Une source peut manquer.
+
+6
+00:00:39,144 --> 00:00:43,865
+Chaque conclusion doit être examinée.
+Chaque source compte.
+
+7
+00:00:57,000 --> 00:00:58,400
+Voici SIGILLE.
+
+8
+00:00:58,937 --> 00:01:08,028
+SIGILLE est conçu pour faire entrer l'intelligence artificielle
+dans le travail du cabinet, avec une priorité claire :
+
+9
+00:01:08,578 --> 00:01:15,446
+être utile, rester sous votre contrôle,
+et partir des réalités de la pratique juridique.
+
+10
+00:01:27,000 --> 00:01:32,831
+SIGILLE suit une approche d'architecture
+orientée vers la confidentialité.
+
+11
+00:01:33,381 --> 00:01:36,665
+Il s'agit de maîtriser les flux de données,
+
+12
+00:01:36,705 --> 00:01:43,509
+et de privilégier le traitement local
+partout où les fonctions concernées le permettent.
+
+13
+00:01:44,059 --> 00:01:47,895
+Le mode « circuit fermé », en cours de validation,
+
+14
+00:01:47,935 --> 00:01:53,594
+n'autorise que ce poste
+et les services internes déclarés par le cabinet.
+
+15
+00:01:54,144 --> 00:02:00,673
+Lors d'un essai, il a refusé deux connexions sortantes
+émises par un composant tiers.
+
+16
+00:02:00,713 --> 00:02:04,346
+Un essai ne prouve pas tout, et nous le disons.
+
+17
+00:02:04,896 --> 00:02:09,356
+L'objectif n'est pas de vous demander de croire un slogan,
+
+18
+00:02:09,396 --> 00:02:14,283
+mais de rendre l'architecture,
+et ses limites, compréhensibles.
+
+19
+00:02:17,500 --> 00:02:24,447
+Prenons un dossier fictif. On importe les pièces :
+PDF, documents Word, images, courriels.
+
+20
+00:02:24,487 --> 00:02:26,739
+SIGILLE les lit sur le poste.
+
+21
+00:02:27,289 --> 00:02:32,743
+Il en tire une chronologie,
+et signale ce qui mérite une vérification :
+
+22
+00:02:32,783 --> 00:02:37,194
+ici, des dates qui se contredisent
+d'une pièce à l'autre.
+
+23
+00:02:37,744 --> 00:02:42,983
+Chaque élément renvoie à sa pièce,
+à sa page, et au passage exact.
+
+24
+00:02:43,533 --> 00:02:49,704
+Les pistes d'argumentation partent des pièces du dossier,
+avec leurs fragilités.
+
+25
+00:02:49,744 --> 00:02:52,772
+Aucune source juridique n'est inventée.
+
+26
+00:02:53,322 --> 00:02:57,706
+Dans les conclusions, chaque fait reste relié à sa pièce.
+
+27
+00:02:57,746 --> 00:03:02,635
+Ce qui doit être relu est signalé,
+et c'est vous qui confirmez.
+
+28
+00:03:03,185 --> 00:03:11,683
+La vraie question n'est pas de savoir si une intelligence
+artificielle peut produire une réponse convaincante.
+
+29
+00:03:12,233 --> 00:03:16,995
+C'est de savoir si un professionnel peut examiner le résultat,
+
+30
+00:03:17,035 --> 00:03:21,991
+en comprendre les limites,
+et garder la maîtrise de son travail.
+
+31
+00:03:22,541 --> 00:03:27,557
+L'ambition de SIGILLE :
+rendre le travail juridique plus cohérent,
+
+32
+00:03:27,597 --> 00:03:35,335
+en laissant le jugement professionnel là où il doit être :
+entre les mains du professionnel du droit.
+
+33
+00:03:39,500 --> 00:03:45,457
+SIGILLE est une plateforme modulaire.
+Certaines fonctions sont déjà vérifiées,
+
+34
+00:03:45,497 --> 00:03:51,109
+d'autres sont encore en préparation,
+et nous les présentons comme telles.
+
+35
+00:03:51,659 --> 00:03:57,577
+Notre ambition : construire un environnement
+d'intelligence juridique sérieux,
+
+36
+00:03:57,617 --> 00:04:05,713
+qui progresse par une ingénierie rigoureuse,
+par l'usage réel, et par une exigence constante de fiabilité.
+
+37
+00:04:12,000 --> 00:04:15,313
+Découvrez SIGILLE sur sigille.fr
+
+38
+00:04:15,863 --> 00:04:24,435
+Explorez les fonctions disponibles aujourd'hui,
+et voyez si notre approche répond aux besoins de votre cabinet.
+
+39
+00:04:24,985 --> 00:04:28,817
+La souscription en ligne ouvrira prochainement.
+
+40
+00:04:39,500 --> 00:04:48,042
+L'avenir de l'intelligence juridique ne dépendra pas seulement
+de ce que l'intelligence artificielle sait faire,
+
+41
+00:04:48,082 --> 00:04:52,220
+mais de la manière dont nous choisirons de l'utiliser.
+
+42
+00:04:52,770 --> 00:04:57,935
+SIGILLE. Une approche plus maîtrisée
+de l'intelligence juridique.
+

@@ -1,0 +1,6 @@
+build/
+tools/node_modules/
+voix/*.tmp
+out/*.mp4
+out/*.wav
+render/assets/captures/*.png

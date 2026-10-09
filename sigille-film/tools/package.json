@@ -1,0 +1,7 @@
+{
+  "name": "sigille-film-tools",
+  "private": true,
+  "type": "module",
+  "description": "Outils de rendu du film SIGILLE (Playwright + FFmpeg).",
+  "dependencies": { "playwright": "1.56.1" }
+}
