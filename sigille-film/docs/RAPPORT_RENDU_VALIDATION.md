@@ -63,9 +63,17 @@ performance, ni recherche juridique (non montrée : aucun corpus fourni).
 
 ## 5. Contrôles sur les fichiers rendus
 
-MESURES_FINALES
+| Fichier | Images | Durée | Erreurs de décodage | Niveau intégré | Crête | LRA | Taille |
+|---|---|---|---|---|---|---|---|
+| `SIGILLE_film_FR_master_1080p25.mp4` | 7 500 (1920 × 1080, 25 i/s) | 300,000 s | 0 | -16,3 LUFS | -6,8 dBFS | 3,7 LU | 121 Mo |
+| `SIGILLE_film_FR_sans-sous-titres_1080p25.mp4` | 7 500 | 300,000 s | 0 | -16,3 LUFS | -6,8 dBFS | 3,7 LU | 119 Mo |
+| `SIGILLE_film_FR_web.mp4` | 7 500 | 300,000 s | 0 | -16,3 LUFS | -6,8 dBFS | 3,7 LU | 45 Mo |
 
-Contrôle visuel : 34 images extraites du fichier web final (sous-titres compris), sur toutes les
+Aucune image manquante (7 500 = 300 s × 25), aucun écrêtage (crête bien sous 0 dBFS).
+Sous-titres : 42 cartons, 0 chevauchement, 2 lignes maximum, ligne la plus longue 63 caractères,
+dernier carton à 4:57,94. Appel à l'action final vérifié à l'image : `sigille.fr` et « DÉCOUVRIR SIGILLE ».
+
+Contrôle visuel : 34 images extraites du premier rendu puis 8 images du rendu final du fichier web final (sous-titres compris), sur toutes les
 scènes et toutes les transitions, examinées en planches contact (`tools/planche.py`). Défauts
 trouvés au premier rendu et corrigés avant le rendu final :
 1. coupures de sous-titres au milieu d'un groupe de mots (« l'intelligence / artificielle »,
