@@ -1,31 +1,35 @@
-/* SIGILLE · film de lancement · moteur de scènes.
+/* SIGILLE · film de lancement v2 · moteur de scènes.
  *
- * Chaque image est une fonction pure du temps : window.render(t) place tous les éléments pour
- * l'instant t (secondes). tools/render.mjs appelle render(t) pour chaque image et la capture.
- * Les textes et le minutage viennent de data.js (généré depuis script/*.json).
- * Les captures d'écran sont réelles (voir docs/MANIFESTE_ASSETS_LICENCES.md) : on ne les retouche
- * pas, on les cadre, on les déplace, on les éclaire.
+ * window.render(t) dessine l'image de l'instant t. Le minutage vient de data.js : chaque plan est
+ * accroché aux répliques de la voix (R("n05").start …), donc l'image suit la voix réelle.
+ *
+ * Matière : fragments RÉELS de l'interface (render/assets/frag, découpés par tools/fragments.py dans
+ * les captures de recette, sans retouche). Le film les isole, les agrandit, les relie.
+ * Signature visuelle : le fil de preuve, un trait cobalt qui relie un fait à sa pièce et devient
+ * le cercle du symbole SIGILLE.
  */
 (() => {
-  const F = window.FILM;
+  const F = window.FILM, FR = window.FRAG;
   const W = 1920, H = 1080;
   const stage = document.getElementById("stage");
 
-  // ───────────────────────── outils ─────────────────────────
+  // ── outils ──
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const lerp = (a, b, k) => a + (b - a) * k;
-  const easeIO = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
-  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+  const io = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+  const out = (k) => 1 - Math.pow(1 - k, 3);
+  const outQ = (k) => 1 - Math.pow(1 - k, 5);
   const ramp = (t, a, b) => clamp((t - a) / (b - a));
-  /** Enveloppe 0 → 1 → 0 : entrée [a, a+fi], sortie [b-fo, b]. */
-  const env = (t, a, b, fi = 0.7, fo = 0.7) => Math.min(easeOut(ramp(t, a, a + fi)), 1 - easeIO(ramp(t, b - fo, b)));
-  const scene = (id) => F.scenes.find((s) => s.id === id);
+  const env = (t, a, b, fi = 0.5, fo = 0.5) => Math.min(out(ramp(t, a, a + fi)), 1 - io(ramp(t, b - fo, b)));
+  const R = (id) => F.repliques.find((r) => r.id === id);
+  const S = (id) => F.scenes.find((s) => s.id === id);
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
   function el(tag, cls, parent, html) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (html !== undefined) e.innerHTML = html;
-    (parent || stage).appendChild(e);
+    parent.appendChild(e);
     return e;
   }
   function svgEl(tag, attrs, parent) {
@@ -34,604 +38,492 @@
     if (parent) parent.appendChild(e);
     return e;
   }
-  function place(e, { o = 1, x = 0, y = 0, s = 1, extra = "" } = {}) {
+  function show(e, o, x = 0, y = 0, s = 1, extra = "") {
     e.style.opacity = o.toFixed(4);
-    e.style.visibility = o <= 0.001 ? "hidden" : "visible";
+    e.style.visibility = o <= 0.002 ? "hidden" : "visible";
     e.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${s.toFixed(4)}) ${extra}`;
   }
-  /** Interpolation de images-clés [[t, ...valeurs]] avec easing. */
-  function keys(t, ks) {
-    if (t <= ks[0][0]) return ks[0].slice(1);
-    for (let i = 0; i < ks.length - 1; i++) {
-      const [a, b] = [ks[i], ks[i + 1]];
-      if (t <= b[0]) {
-        const k = easeIO(ramp(t, a[0], b[0]));
-        return a.slice(1).map((v, j) => lerp(v, b[j + 1], k));
-      }
-    }
-    return ks[ks.length - 1].slice(1);
-  }
-  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  function pos(e, x, y) { e.style.left = x + "px"; e.style.top = y + "px"; }
 
-  // Symbole officiel (website/components/Logo.tsx, géométrie inchangée).
+  // Symbole officiel (website/components/Logo.tsx), géométrie inchangée.
   const MARK_PATH =
     "M870,861L829,820L804,799L771,774L769,778L767,813L761,841L744,886L729,911L699,950L672,975L648,992L627,1004L594,1019L565,1028L525,1036L426,1038L371,1045L337,1053L297,1067L253,1088L220,1109L194,1128L178,1141L152,1167L116,1212L100,1235L91,1251L66,1303L55,1344L52,1351L42,1395L40,1429L39,1430L39,1516L555,1517L556,1516L581,1515L636,1505L679,1492L703,1482L740,1463L773,1443L804,1420L827,1399L863,1360L889,1323L903,1298L925,1251L937,1215L948,1169L948,1162L952,1139L952,1059L946,1020L939,992L929,962L908,918L891,890ZM457,628L430,635L404,649L388,660L368,682L356,704L347,732L344,753L344,773L346,787L353,812L365,836L376,850L394,867L417,881L440,890L461,894L502,893L526,886L549,875L567,862L592,835L605,809L612,782L612,746L609,723L597,692L580,670L556,649L528,635L499,628ZM906,0L383,0L373,2L364,2L320,10L281,22L245,36L203,58L178,74L138,106L97,149L80,171L62,198L31,257L14,308L4,356L1,404L0,405L0,436L5,481L14,523L30,571L46,604L64,634L86,663L140,715L180,745L189,748L191,722L197,691L208,655L221,628L235,605L251,584L285,551L319,526L352,509L379,499L403,493L437,488L533,485L569,480L607,471L655,455L693,437L733,412L767,385L796,357L820,329L848,288L870,246L886,206L899,159L906,110Z";
 
-  /** Symbole : tracé progressif (k_trace) puis remplissage (k_fill). */
-  function makeMark(parent, h) {
+  /** Symbole : tracé (cercle d'abord, puis les deux lames) puis remplissage. */
+  function makeMark(parent, h, color = "#ffffff") {
     const w = (953 / 1518) * h;
     const svg = svgEl("svg", { width: w, height: h, viewBox: "-20 -20 993 1558" });
     svg.style.position = "absolute";
     parent.appendChild(svg);
     const parts = MARK_PATH.split(/(?=M)/).filter(Boolean);
-    const strokes = parts.map((d) => svgEl("path", { d, fill: "none", stroke: "#f3efe6", "stroke-width": 7, "stroke-linejoin": "round" }, svg));
-    const fill = svgEl("path", { d: MARK_PATH, fill: "#ffffff", "fill-rule": "evenodd" }, svg);
+    const strokes = parts.map((d) => svgEl("path", { d, fill: "none", stroke: color, "stroke-width": 9, "stroke-linejoin": "round" }, svg));
+    const fill = svgEl("path", { d: MARK_PATH, fill: color, "fill-rule": "evenodd" }, svg);
     const lens = strokes.map((p) => p.getTotalLength());
     strokes.forEach((p, i) => p.setAttribute("stroke-dasharray", `${lens[i]} ${lens[i]}`));
     return {
       svg, w, h,
-      set(kTrace, kFill, kStrokeOut = kFill) {
-        // Le cercle (2e forme) se trace en premier, puis les deux lames.
-        const order = [1, 0, 2];
-        order.forEach((idx, n) => {
-          const k = easeIO(clamp(kTrace * 3 - n * 0.8, 0, 1));
+      set(kTrace, kFill) {
+        [1, 0, 2].forEach((idx, n) => {
+          const k = io(clamp(kTrace * 3 - n * 0.85, 0, 1));
           strokes[idx].setAttribute("stroke-dashoffset", (lens[idx] * (1 - k)).toFixed(1));
-          strokes[idx].style.opacity = (1 - kStrokeOut).toFixed(3);
+          strokes[idx].style.opacity = (1 - kFill).toFixed(3);
         });
-        fill.style.opacity = easeIO(kFill).toFixed(3);
+        fill.style.opacity = io(kFill).toFixed(3);
       },
     };
   }
 
-  /** Fenêtre contenant une capture réelle, avec caméra (centre source cx, cy ; zoom z). */
-  function makeWin(parent, src, sw, sh, r, opts = {}) {
-    const root = el("div", "win", parent);
-    Object.assign(root.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
-    const top = opts.url ? 44 : 0;
-    if (opts.url) {
-      const c = el("div", "chrome", root, `<i></i><i></i><i></i><div class="url">${esc(opts.url)}</div>`);
-      c.style.zIndex = 3;
-    }
-    const img = el("img", "", root);
-    img.src = "assets/" + src;
-    img.width = sw; img.height = sh;
-    const foci = (opts.focus || []).map((f) => {
-      const d = el("div", "focus" + (f.signal ? " signal" : ""), root);
-      d.style.zIndex = 2;
-      return { ...f, d };
-    });
-    const win = { root, img, r, sw, sh, top, foci, cam: opts.cam, z: 1, tx: 0, ty: 0 };
-    win.camera = (cx, cy, z) => {
-      const fw = r.w, fh = r.h - top;
-      z = Math.max(z, Math.max(fw / sw, fh / sh));
-      let tx = fw / 2 - cx * z, ty = fh / 2 - cy * z;
-      tx = clamp(tx, fw - sw * z, 0);
-      ty = clamp(ty, fh - sh * z, 0);
-      Object.assign(win, { z, tx, ty });
-      img.style.transform = `translate(${tx.toFixed(2)}px, ${(ty + top).toFixed(2)}px) scale(${z.toFixed(4)})`;
+  /** Fragment réel d'interface, placé en (x, y) à l'échelle s. pt(u, v) → coordonnées scène d'un point du fragment. */
+  function frag(parent, name, x, y, s, cls = "") {
+    const [fw, fh] = FR[name];
+    const d = el("div", "frag " + cls, parent);
+    const img = el("img", "", d);
+    img.src = `assets/frag/${name}.png`;
+    Object.assign(d.style, { left: x + "px", top: y + "px", width: fw + "px", height: fh + "px" });
+    const f = { d, x, y, s, fw, fh, dx: 0, dy: 0, sc: 1, marks: [] };
+    f.pt = (u, v) => [f.x + f.dx + u * f.s * f.sc, f.y + f.dy + v * f.s * f.sc];
+    f.set = (o, dx = 0, dy = 0, sc = 1) => {
+      Object.assign(f, { dx, dy, sc });
+      show(d, o, dx, dy, s * sc);
+      for (const m of f.marks) m.upd(o);
     };
-    win.update = (t) => {
-      if (win.cam) win.camera(...keys(t, win.cam));
-      for (const f of win.foci) {
-        const o = env(t, f.a, f.b, 0.45, 0.4);
-        const [x0, y0, x1, y1] = f.r, p = 7;
-        Object.assign(f.d.style, {
-          left: (win.tx + x0 * win.z - p).toFixed(1) + "px",
-          top: (win.ty + win.top + y0 * win.z - p).toFixed(1) + "px",
-          width: ((x1 - x0) * win.z + 2 * p).toFixed(1) + "px",
-          height: ((y1 - y0) * win.z + 2 * p).toFixed(1) + "px",
-          opacity: o.toFixed(3),
-          visibility: o > 0.001 ? "visible" : "hidden",
-        });
-      }
+    /** Repère sur une zone du fragment (coordonnées du fragment), visible entre a et b. */
+    f.mark = (box, a, b, signal = false) => {
+      const m = el("div", "mark" + (signal ? " signal" : ""), parent);
+      const mk = { box, a, b, m, t: 0 };
+      mk.upd = (o) => {
+        const k = env(mk.t, a, b, 0.35, 0.35) * o;
+        const [x0, y0] = f.pt(box[0], box[1]), [x1, y1] = f.pt(box[2], box[3]);
+        const p = 6;
+        Object.assign(m.style, { left: x0 - p + "px", top: y0 - p + "px", width: x1 - x0 + 2 * p + "px", height: y1 - y0 + 2 * p + "px" });
+        m.style.opacity = k.toFixed(3); m.style.visibility = k > 0.002 ? "visible" : "hidden";
+        m.style.transform = `scale(${lerp(1.06, 1, out(ramp(mk.t, a, a + 0.4))).toFixed(3)})`;
+      };
+      f.marks.push(mk);
+      return mk;
     };
-    return win;
+    f.tick = (t) => { for (const m of f.marks) m.t = t; };
+    return f;
   }
 
-  // ───────────────────────── calques de scène ─────────────────────────
-  const layers = {};
-  const updaters = [];
+  /** Fil de preuve : courbe tracée progressivement entre deux points (avec deux points d'ancrage). */
+  function thread(svg, color = "#004aad", width = 2.5) {
+    const p = svgEl("path", { fill: "none", stroke: color, "stroke-width": width, "stroke-linecap": "round" }, svg);
+    const c0 = svgEl("circle", { r: 5, fill: color }, svg);
+    const c1 = svgEl("circle", { r: 5, fill: color }, svg);
+    return (a, b, k, o = 1, bend = 0.45) => {
+      const [x0, y0] = a, [x1, y1] = b;
+      const mx = (x0 + x1) / 2;
+      const d = Math.abs(y1 - y0) > Math.abs(x1 - x0)
+        ? `M${x0},${y0} C${x0},${lerp(y0, y1, bend)} ${x1},${lerp(y1, y0, bend)} ${x1},${y1}`
+        : `M${x0},${y0} C${lerp(x0, mx, 1)},${y0} ${lerp(x1, mx, 1)},${y1} ${x1},${y1}`;
+      p.setAttribute("d", d);
+      const L = p.getTotalLength();
+      p.setAttribute("stroke-dasharray", `${L} ${L}`);
+      p.setAttribute("stroke-dashoffset", (L * (1 - io(k))).toFixed(1));
+      for (const [c, on] of [[c0, k > 0.01], [c1, k > 0.98]]) { c.style.opacity = on ? o : 0; }
+      c0.setAttribute("cx", x0); c0.setAttribute("cy", y0); c1.setAttribute("cx", x1); c1.setAttribute("cy", y1);
+      p.style.opacity = o;
+    };
+  }
+
+  function overlay(parent) {
+    const s = svgEl("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+    Object.assign(s.style, { position: "absolute", left: 0, top: 0, zIndex: 6, pointerEvents: "none" });
+    parent.appendChild(s);
+    return s;
+  }
+  function chap(parent, n, t) { return el("div", "chap", parent, `<span class="n">${n}</span><span class="t">${esc(t)}</span>`); }
+  function mention(parent, txt = "Interface réelle · dossier fictif de recette") { return el("div", "mention", parent, esc(txt)); }
+  function enonce(parent, html, x, y, size, opts = {}) {
+    const e = el("div", "enonce", parent, html);
+    Object.assign(e.style, { left: x + "px", top: y + "px", fontSize: size + "px", ...(opts.w ? { width: opts.w + "px" } : {}), ...(opts.align ? { textAlign: opts.align } : {}) });
+    return e;
+  }
+
+  // ── calques de scènes ──
+  const layers = {}, updaters = [];
   for (const s of F.scenes) {
-    const l = el("div", "layer", stage);
-    l.dataset.scene = s.id;
+    const l = el("div", "layer " + s.fond, stage);
     layers[s.id] = l;
   }
-  function onScene(id, fn) { updaters.push({ id, fn }); }
+  const on = (id, fn) => updaters.push({ id, fn });
 
-  // Textes d'écran (script/ecran.json), placés selon la scène.
-  const textLayer = el("div", "layer", stage);
-  textLayer.style.zIndex = 20;
-  const POS = {
-    s01: { mode: "centre", y: 690, size: 30 },
-    s02: { mode: "gauche", x: 140, y: 112, size: 30, maxW: 1640 },
-    s03: { mode: "gauche", x: 140, y: 420, size: 26, maxW: 600, ls: 0.16 },
-    s04: { mode: "gauche", x: 140, y: 112, size: 30, maxW: 1640 },
-    s06: { mode: "gauche", x: 140, y: 112, size: 30, maxW: 1640 },
-    s07: { mode: "gauche", x: 140, y: 430, size: 26, maxW: 600, ls: 0.16 },
-    s08: { mode: "centre", y: 560, size: 60 },
-  };
-  const texts = F.ecran.map((e) => {
-    let d;
-    if (e.style === "etape") {
-      const [num, lib] = e.texte.split("|");
-      d = el("div", "etape", textLayer, `<span class="num">${esc(num)}</span><span class="lib">${esc(lib)}</span>`);
-      Object.assign(d.style, { left: "140px", top: "62px" });
-    } else if (e.style === "serif") {
-      const html = esc(e.texte).replace("SIGILLE", "<em>SIGILLE</em>").replace(/\|/g, "<br>");
-      d = el("div", "serif-txt", textLayer, html);
-      const big = e.scene === "s03";
-      Object.assign(d.style, { left: 0, width: W + "px", textAlign: "center", fontSize: big ? "112px" : "60px", top: big ? "430px" : "560px" });
-    } else {
-      const p = POS[e.scene];
-      d = el("div", "titre", textLayer, esc(e.texte).replace(/\|/g, "<br>"));
-      d.style.fontSize = p.size + "px";
-      if (p.mode === "centre") Object.assign(d.style, { left: 0, width: W + "px", textAlign: "center", top: p.y + "px" });
-      else Object.assign(d.style, { left: p.x + "px", top: p.y + "px" });
-      d._maxW = p.maxW;
-      d._ls = p.ls || 0.32;
-      d.style.letterSpacing = d._ls + "em";
-    }
-    return { e, d };
-  });
-  function fitTexts() {
-    for (const { d } of texts) {
-      if (!d._maxW) continue;
-      let size = parseFloat(d.style.fontSize);
-      while (d.scrollWidth > d._maxW && size > 14) { size -= 1; d.style.fontSize = size + "px"; }
-    }
-  }
-  function updateTexts(t) {
-    for (const { e, d } of texts) {
-      const o = env(t, e.debut, e.fin, 0.9, 0.7);
-      if (o <= 0) { d.style.visibility = "hidden"; d.style.opacity = 0; continue; }
-      const k = easeOut(ramp(t, e.debut, e.debut + 1.6));
-      place(d, { o, y: lerp(16, 0, k) });
-      if (d.classList.contains("titre")) d.style.letterSpacing = lerp(d._ls + 0.1, d._ls, k).toFixed(3) + "em";
-    }
-  }
-
-  // Ligne de lumière aux changements de scène.
-  const sweep = el("div", "abs", stage);
-  Object.assign(sweep.style, { left: 0, top: "539px", height: "2px", width: W + "px", zIndex: 30,
-    background: "linear-gradient(90deg, transparent, rgba(243,239,230,0.65), transparent)" });
-  function updateSweep(t) {
-    let o = 0, sx = 0;
-    for (const s of F.scenes.slice(1)) {
-      const k = ramp(t, s.debut - 0.5, s.debut + 0.6);
-      if (k > 0 && k < 1) { o = Math.sin(k * Math.PI) * 0.55; sx = easeOut(k); }
-    }
-    place(sweep, { o, s: 1 }); sweep.style.transform = `scaleX(${sx.toFixed(3)})`;
-  }
-
-  // ───────────────────────── S01 · Ouverture ─────────────────────────
+  // ══ C00 · Ouverture : la contradiction ══
   {
-    const L = layers.s01;
+    const L = layers.c00, n01 = R("n01"), n02 = R("n02"), n03 = R("n03"), sc = S("c00");
+    const A = frag(L, "chrono-evenement1", 160, 300, 1.55);
+    const B = frag(L, "piece-passage", 700, 560, 1.45);
+    const refA = el("div", "legende", L, "Chronologie du dossier"); pos(refA, 160, 258);
+    const refB = frag(L, "piece-reference", 700, 520, 1.6, "nu");
+    // dates contradictoires dans chaque fragment (coordonnées du fragment)
+    A.mark([168, 28, 264, 52], n01.start + 1.5, n03.start + 0.6, true);
+    B.mark([403, 3, 562, 33], n01.start + 1.5, n03.start + 0.6, true);
+    const ov = overlay(L), th = thread(ov, "#c2410c", 2.5);
+    const neq = el("div", "abs", L, "≠");
+    Object.assign(neq.style, { font: "400 64px var(--serif)", color: "var(--signal)", zIndex: 7 });
+    const q = enonce(L, "Une date fausse<br><em>ne se voit pas.</em>", 160, 330, 104);
+    const ment = mention(L);
+    on("c00", (t) => {
+      const kA = outQ(ramp(t, n01.start - 0.9, n01.start + 0.2)), kB = outQ(ramp(t, n01.start + 0.5, n01.start + 1.4));
+      const leave = io(ramp(t, n03.start - 0.2, n03.start + 0.7));
+      const push = lerp(1, 1.04, ramp(t, 0, n03.start));
+      A.tick(t); B.tick(t);
+      A.set(kA * (1 - leave), lerp(-60, 0, kA) - leave * 80, 0, push);
+      B.set(kB * (1 - leave), lerp(60, 0, kB) + leave * 80, 0, push);
+      show(refA, kA * (1 - leave), 0, lerp(10, 0, kA));
+      refB.set(kB * (1 - leave));
+      const kt = ramp(t, n01.start + 1.6, n01.start + 2.6);
+      th(A.pt(216, 52), B.pt(482, 3), kt, 1 - leave, 0.5);
+      const [mx, my] = [(A.pt(216, 52)[0] + B.pt(482, 3)[0]) / 2, (A.pt(216, 52)[1] + B.pt(482, 3)[1]) / 2];
+      pos(neq, mx + 18, my - 52);
+      show(neq, out(ramp(t, n01.start + 2.4, n01.start + 2.9)) * (1 - leave));
+      show(q, env(t, n03.start + 0.4, sc.fin + 0.2, 0.8, 0.5), 0, lerp(20, 0, out(ramp(t, n03.start + 0.4, n03.start + 1.4))));
+      show(ment, env(t, 0.6, n03.start + 0.4, 0.8, 0.5));
+    });
+  }
+
+  // ══ C01 · Titre : le sceau ══
+  {
+    const L = layers.c01, n04 = R("n04"), sc = S("c01");
     const holder = el("div", "abs", L);
-    const mark = makeMark(holder, 210);
-    Object.assign(holder.style, { left: (W - mark.w) / 2 + "px", top: "250px", width: mark.w + "px", height: "210px" });
+    const mk = makeMark(holder, 230);
+    pos(holder, (W - mk.w) / 2, 240);
     const word = el("div", "abs", L, "SIGILLE");
-    Object.assign(word.style, { left: 0, width: W + "px", textAlign: "center", top: "512px", font: "500 40px var(--sans)", letterSpacing: "0.62em", paddingLeft: "0.62em", color: "#f3efe6" });
-    const line = el("div", "rule", L);
-    Object.assign(line.style, { left: "660px", width: "600px", top: "600px" });
-    onScene("s01", (t) => {
-      mark.set(ramp(t, 0.6, 4.2), ramp(t, 3.6, 5.0));
-      place(holder, { o: 1 - ramp(t, 18.4, 19.6), y: lerp(0, -10, ramp(t, 4, 19)) });
-      const kw = easeOut(ramp(t, 4.0, 5.8));
-      place(word, { o: kw * (1 - ramp(t, 18.4, 19.6)) });
-      word.style.letterSpacing = lerp(0.9, 0.62, kw).toFixed(3) + "em";
-      const kl = easeIO(ramp(t, 1.2, 3.6));
-      line.style.transform = `scaleX(${kl.toFixed(3)})`;
-      line.style.opacity = (0.8 * (1 - ramp(t, 18.4, 19.6))).toFixed(3);
+    Object.assign(word.style, { left: 0, width: W + "px", textAlign: "center", top: "520px", font: "500 44px var(--sans)", letterSpacing: ".6em", paddingLeft: ".6em" });
+    const tag = enonce(L, "Chaque fait, <em>sa pièce.</em>", 0, 610, 64, { w: W, align: "center" });
+    on("c01", (t) => {
+      mk.set(ramp(t, sc.debut + 0.1, sc.debut + 1.6), ramp(t, sc.debut + 1.3, sc.debut + 2.2));
+      const kw = out(ramp(t, sc.debut + 1.4, sc.debut + 2.6));
+      show(word, kw); word.style.letterSpacing = lerp(0.95, 0.6, kw).toFixed(3) + "em";
+      show(tag, out(ramp(t, n04.start + 2.0, n04.start + 3.0)), 0, lerp(14, 0, out(ramp(t, n04.start + 2.0, n04.start + 3.2))));
+      show(holder, 1, 0, lerp(0, -8, ramp(t, sc.debut, sc.fin)));
     });
   }
 
-  // ───────────────────────── S02 · Le problème ─────────────────────────
+  // ══ C02 · Importer ══
   {
-    const L = layers.s02;
-    const lines = svgEl("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
-    Object.assign(lines.style, { position: "absolute", left: 0, top: 0 });
-    L.appendChild(lines);
-    const field = el("div", "abs", L);
-    Object.assign(field.style, { left: 0, top: 0, width: W + "px", height: H + "px", perspective: "1600px" });
-
-    // Pièces : cartes abstraites (pas de contenu réel).
-    const cards = [];
-    const CARD_POS = [[820, 330, -16], [1040, 300, -10], [1260, 345, -4], [900, 560, -14], [1120, 590, -8], [1340, 560, -2]];
-    CARD_POS.forEach(([x, y, ry], i) => {
-      const c = el("div", "card", field);
-      Object.assign(c.style, { left: x + "px", top: y + "px", width: "190px", height: "236px", padding: "18px" });
-      let html = `<div class="note" style="color:#9dbbee">PIÈCE ${String(i + 1).padStart(2, "0")}</div>`;
-      for (let k = 0; k < 7; k++) html += `<div style="height:7px;margin-top:${k ? 13 : 22}px;border-radius:4px;background:rgba(243,239,230,${k % 3 === 2 ? 0.1 : 0.18});width:${[92, 80, 64, 88, 72, 54, 84][k]}%"></div>`;
-      c.innerHTML = html;
-      cards.push({ c, x, y, ry, cx: x + 95, cy: y + 118 });
-    });
-
-    // Éléments extraits : dates, faits, références, reliés à leurs pièces.
-    const CHIPS = [
-      { t: "12/08/2016", cls: "date", x: 1560, y: 250, card: 2, a: 27.2 },
-      { t: "Pièce 3 · p. 1", cls: "", x: 1580, y: 470, card: 2, a: 28.0 },
-      { t: "21/09/2019", cls: "date", x: 1600, y: 690, card: 5, a: 28.8 },
-      { t: "Fait", cls: "", x: 1250, y: 860, card: 4, a: 29.6 },
-      { t: "Argument", cls: "", x: 960, y: 865, card: 3, a: 30.4 },
-      { t: "Source ?", cls: "", x: 1440, y: 190, card: 1, a: 31.2 },
-      { t: "Pièce 15 · p. 2", cls: "", x: 760, y: 230, card: 0, a: 32.0 },
-    ];
-    const chipEls = CHIPS.map((ch) => {
-      const d = el("div", "chip " + ch.cls, field, esc(ch.t));
-      Object.assign(d.style, { left: ch.x + "px", top: ch.y + "px" });
-      const c = cards[ch.card];
-      const ln = svgEl("line", { x1: c.cx, y1: c.cy, x2: ch.x + 60, y2: ch.y + 20, stroke: "rgba(243,239,230,0.28)", "stroke-width": 1.2 }, lines);
-      const len = Math.hypot(ch.x + 60 - c.cx, ch.y + 20 - c.cy);
-      ln.setAttribute("stroke-dasharray", `${len} ${len}`);
-      return { ...ch, d, ln, len };
-    });
-
-    // La contradiction : un même événement, deux dates.
-    const fact = el("div", "chip", field, "Un même événement");
-    Object.assign(fact.style, { left: "110px", top: "560px" });
-    const dA = el("div", "chip date", field, "05/01/2015 · pièce 6");
-    const dB = el("div", "chip date", field, "09/09/2015 · pièce 24");
-    Object.assign(dA.style, { left: "430px", top: "430px" });
-    Object.assign(dB.style, { left: "430px", top: "700px" });
-    const lA = svgEl("path", { d: "M 385 580 C 410 580, 400 450, 430 450", fill: "none", "stroke-width": 1.6 }, lines);
-    const lB = svgEl("path", { d: "M 385 580 C 410 580, 400 720, 430 720", fill: "none", "stroke-width": 1.6 }, lines);
-    const lAc = svgEl("line", { x1: 690, y1: 450, x2: 820 + 95, y2: 330 + 118, "stroke-width": 1.2 }, lines);
-    const lBc = svgEl("line", { x1: 700, y1: 720, x2: 900 + 95, y2: 560 + 118, "stroke-width": 1.2 }, lines);
-    const neq = el("div", "abs", field, "≠");
-    Object.assign(neq.style, { left: "352px", top: "546px", font: "500 40px var(--sans)", color: "var(--signal)" });
-    const lab = el("div", "note", field, "Dates contradictoires");
-    Object.assign(lab.style, { position: "absolute", left: "110px", top: "630px", color: "var(--signal)", fontSize: "18px" });
-    const conv = el("div", "abs", L);
-    Object.assign(conv.style, { left: "954px", top: "534px", width: "12px", height: "12px", borderRadius: "50%", background: "#fff", boxShadow: "0 0 30px 10px rgba(157,187,238,0.7)" });
-
-    onScene("s02", (t) => {
-      const kConv = easeIO(ramp(t, 52.6, 55.0)); // tout converge vers le centre
-      const conv2 = (x, y) => [lerp(x, 960, kConv), lerp(y, 540, kConv)];
-      const drift = (i, amp = 6) => [Math.sin(t * 0.35 + i * 1.7) * amp, Math.cos(t * 0.3 + i * 2.1) * amp];
-      field.style.opacity = (1 - ramp(t, 54.0, 55.2)).toFixed(3);
-      lines.style.opacity = field.style.opacity;
-      cards.forEach((c, i) => {
-        const k = easeOut(ramp(t, 20.6 + i * 0.55, 22.4 + i * 0.55));
-        const [dx, dy] = drift(i, 5);
-        const [px, py] = conv2(c.x, c.y);
-        place(c.c, { o: k * (1 - 0.35 * ramp(t, 44, 47)), x: px - c.x + dx, y: py - c.y + dy, s: lerp(1, 0.1, kConv),
-          extra: `rotateY(${c.ry}deg) translateZ(${lerp(-420, 0, k).toFixed(1)}px)` });
-      });
-      chipEls.forEach((ch, i) => {
-        const k = easeOut(ramp(t, ch.a, ch.a + 1.2));
-        const [dx, dy] = drift(i + 7, 7);
-        const [px, py] = conv2(ch.x, ch.y);
-        place(ch.d, { o: k * (1 - 0.45 * ramp(t, 44, 47)), x: px - ch.x + dx, y: py - ch.y + dy, s: lerp(1, 0.1, kConv) });
-        ch.ln.setAttribute("stroke-dashoffset", (ch.len * (1 - easeIO(ramp(t, ch.a - 0.2, ch.a + 1.4)))).toFixed(1));
-        ch.ln.style.opacity = ((1 - 0.5 * ramp(t, 44, 47)) * (1 - kConv)).toFixed(3);
-      });
-      const kf = easeOut(ramp(t, 36.4, 37.6)), kd = easeIO(ramp(t, 37.4, 40.0)), ks = ramp(t, 39.2, 40.4);
-      const sig = (a) => `rgba(224,106,50,${a})`;
-      const [fx, fy] = conv2(110, 560);
-      place(fact, { o: kf, x: fx - 110, y: fy - 560, s: lerp(1, 0.1, kConv) });
-      // Les deux dates s'écartent : la contradiction devient visible.
-      const spread = lerp(0, 1, kd);
-      [[dA, 430, -1], [dB, 700, 1]].forEach(([d, y0, sgn]) => {
-        const [px, py] = conv2(430, y0);
-        place(d, { o: kf, x: px - 430 + spread * 30, y: py - y0 + sgn * spread * 12, s: lerp(1, 0.1, kConv) });
-        d.classList.toggle("signal", ks > 0.5);
-      });
-      for (const p of [lA, lB]) {
-        p.setAttribute("stroke", ks > 0 ? sig(lerp(0.3, 0.9, ks)) : "rgba(243,239,230,0.3)");
-        p.style.opacity = (kf * (1 - kConv)).toFixed(3);
-      }
-      for (const p of [lAc, lBc]) { p.setAttribute("stroke", "rgba(243,239,230,0.2)"); p.style.opacity = (kd * (1 - kConv)).toFixed(3); }
-      place(neq, { o: ks * (1 - kConv) });
-      place(lab, { o: ramp(t, 40.0, 41.2) * (1 - kConv) });
-      place(conv, { o: Math.sin(clamp(ramp(t, 53.8, 55.6)) * Math.PI), s: lerp(0.4, 1.6, ramp(t, 53.8, 55.6)) });
+    const L = layers.c02, n05 = R("n05"), n06 = R("n06"), sc = S("c02");
+    chap(L, "01", "Importer"); const ment = mention(L);
+    const head = frag(L, "import-entete", 240, 150, 1.45);
+    const zone = frag(L, "import-zone", 240, 300, 1.3);
+    const cards = ["import-carte1", "import-carte2", "import-carte3"].map((n, i) => frag(L, n, 240 + i * 478, 680, 1.25));
+    zone.mark([363, 174, 704, 204], n06.start + 0.2, sc.fin - 0.2);
+    head.mark([2, 44, 520, 82], n06.start + 1.4, sc.fin - 0.2);
+    on("c02", (t) => {
+      const k1 = outQ(ramp(t, sc.debut + 0.3, sc.debut + 1.2));
+      [head, zone, ...cards].forEach((f) => f.tick(t));
+      head.set(k1, 0, lerp(30, 0, k1));
+      const k2 = outQ(ramp(t, sc.debut + 0.7, sc.debut + 1.7));
+      zone.set(k2, 0, lerp(40, 0, k2), lerp(0.97, 1, k2));
+      cards.forEach((c, i) => { const k = outQ(ramp(t, n05.start + 1.0 + i * 0.35, n05.start + 1.9 + i * 0.35)); c.set(k, 0, lerp(50, 0, k)); });
+      show(ment, env(t, sc.debut + 0.4, sc.fin + 0.4, 0.6, 0.4));
     });
   }
 
-  // ───────────────────────── S03 · Voici SIGILLE ─────────────────────────
+  // ══ C03 + C04 · Comprendre, puis vérifier (même plan, continuité) ══
   {
-    const L = layers.s03;
+    const L3 = layers.c03, L4 = layers.c04, n07 = R("n07"), n08 = R("n08"), n09 = R("n09"), n10 = R("n10");
+    const s3 = S("c03"), s4 = S("c04");
+    // Les deux scènes partagent les mêmes fragments : on les place dans c03 et on prolonge le calque.
+    const L = L3; L4.style.background = "transparent";
+    const c3 = chap(L, "02", "Comprendre"); const c4 = chap(L, "03", "Vérifier"); const ment = mention(L);
+    const title = frag(L, "chrono-titre", 160, 140, 1.6);
+    const rows = frag(L, "chrono-lignes", 160, 290, 1.15);
+    const ctx = frag(L, "chrono-contexte", 1384, 290, 1.17);
+    const alert = frag(L, "chrono-alerte", 1384, 196, 1.43);
+    // provenance : colonne des pièces sources
+    [[645, 50, 728, 76], [645, 157, 728, 183], [645, 290, 728, 316], [645, 398, 728, 424]].forEach((b, i) =>
+      rows.mark(b, n08.start + 0.3 + i * 0.25, s3.fin + 0.3));
+    title.mark([438, 44, 548, 62], n08.start + 2.3, s3.fin + 0.2);
+    // contradictions : colonne état, liens « autre date »
+    [[872, 46, 1000, 86], [872, 153, 1000, 193], [872, 286, 1000, 326], [872, 394, 1000, 434]].forEach((b, i) =>
+      rows.mark(b, n09.start + 0.4 + i * 0.22, s4.fin - 0.1, true));
+    [[244, 102, 404, 122], [244, 234, 412, 254], [244, 340, 412, 360]].forEach((b, i) =>
+      rows.mark(b, n10.start + 0.2 + i * 0.25, s4.fin - 0.1));
+    ctx.mark([16, 58, 226, 76], n09.start + 1.6, s4.fin - 0.1, true);
+    // la scène c04 n'a pas de calque propre : on rend c03 visible jusqu'à la fin de c04
+    on("c03", (t) => {
+      [title, rows, ctx, alert].forEach((f) => f.tick(t));
+      const k1 = outQ(ramp(t, s3.debut + 0.2, s3.debut + 1.1));
+      title.set(k1, 0, lerp(24, 0, k1));
+      // révélation des lignes de haut en bas
+      const kr = io(ramp(t, n07.start + 0.2, n07.start + 2.2));
+      rows.set(outQ(ramp(t, s3.debut + 0.5, s3.debut + 1.3)), 0, 0);
+      rows.d.style.clipPath = `inset(0 0 ${((1 - kr) * 100).toFixed(2)}% 0 round 12px)`;
+      const kc = outQ(ramp(t, n08.start, n08.start + 0.9));
+      ctx.set(kc, lerp(40, 0, kc), 0);
+      const ka = outQ(ramp(t, n09.start + 0.1, n09.start + 0.8));
+      alert.set(ka, 0, lerp(-16, 0, ka), lerp(1.12, 1, ka));
+      // légère avancée de caméra pendant « Vérifier »
+      const kz = io(ramp(t, n09.start, s4.fin));
+      L.style.transform = `scale(${lerp(1, 1.035, kz).toFixed(4)})`; L.style.transformOrigin = "60% 45%";
+      show(c3, env(t, s3.debut + 0.2, n09.start, 0.5, 0.4));
+      show(c4, env(t, n09.start, s4.fin, 0.5, 0.3));
+      show(ment, env(t, s3.debut + 0.3, s4.fin, 0.5, 0.3));
+    });
+    on("c04", () => {});
+    layers.c03._extend = s4.fin; // voir render()
+  }
+
+  // ══ C05 · Remonter à la source ══
+  {
+    const L = layers.c05, n11 = R("n11"), sc = S("c05");
+    chap(L, "04", "Remonter à la source"); const ment = mention(L);
+    const head = frag(L, "piece-entete", 160, 140, 1.2);
+    const body = frag(L, "piece-texte", 160, 330, 1.08);
+    const panel = frag(L, "piece-panneau", 1356, 300, 1.25);
+    body.mark([104, 370, 824, 434], n11.start + 2.0, sc.fin - 0.1);
+    head.mark([2, 2, 160, 22], n11.start + 1.3, sc.fin - 0.1);
+    const ov = overlay(L), th = thread(ov);
+    on("c05", (t) => {
+      [head, body, panel].forEach((f) => f.tick(t));
+      const k = outQ(ramp(t, sc.debut + 0.1, sc.debut + 0.9));
+      head.set(k, 0, lerp(-20, 0, k));
+      // la pièce s'ouvre : léger zoom arrière
+      const kb = outQ(ramp(t, sc.debut + 0.3, sc.debut + 1.4));
+      body.set(kb, 0, lerp(30, 0, kb), lerp(1.06, 1, kb));
+      const kp = outQ(ramp(t, n11.start + 0.6, n11.start + 1.4));
+      panel.set(kp, lerp(50, 0, kp), 0);
+      // fil : du passage cité dans la rédaction (panneau) au passage exact dans la pièce
+      th(panel.pt(12, 90), body.pt(824, 400), ramp(t, n11.start + 2.1, n11.start + 3.2));
+      show(ment, env(t, sc.debut + 0.3, sc.fin + 0.4, 0.5, 0.4));
+    });
+  }
+
+  // ══ C06 · Argumenter ══
+  {
+    const L = layers.c06, n12 = R("n12"), n13 = R("n13"), sc = S("c06");
+    chap(L, "05", "Argumenter"); const ment = mention(L);
+    const title = frag(L, "args-titre", 160, 140, 1.4);
+    const note = frag(L, "args-note", 160, 248, 1.4);
+    const table = frag(L, "args-table", 160, 312, 1.04);
+    table.mark([603, 86, 732, 492], n12.start + 1.4, sc.fin - 0.1, true);
+    note.mark([610, 2, 853, 24], n13.start + 0.1, sc.fin - 0.1);
+    on("c06", (t) => {
+      [title, note, table].forEach((f) => f.tick(t));
+      const k = outQ(ramp(t, sc.debut + 0.1, sc.debut + 0.9));
+      title.set(k, 0, lerp(-20, 0, k));
+      const kt = outQ(ramp(t, sc.debut + 0.4, sc.debut + 1.4));
+      table.set(kt, 0, lerp(40, 0, kt));
+      table.d.style.clipPath = `inset(0 0 ${((1 - io(ramp(t, sc.debut + 0.5, n12.start + 1.5))) * 100).toFixed(2)}% 0 round 12px)`;
+      const kn = outQ(ramp(t, n13.start - 0.3, n13.start + 0.4));
+      note.set(kn, 0, lerp(-12, 0, kn));
+      show(ment, env(t, sc.debut + 0.3, sc.fin + 0.4, 0.5, 0.4));
+    });
+  }
+
+  // ══ C07 · Rédiger, relire, exporter ══
+  {
+    const L = layers.c07, n14 = R("n14"), n15 = R("n15"), n16 = R("n16"), sc = S("c07");
+    chap(L, "06", "Rédiger"); const ment = mention(L);
+    const head = frag(L, "redac-entete", 160, 140, 1.2);
+    const paras = frag(L, "redac-paragraphes", 160, 300, 1.42);
+    const panel = frag(L, "redac-panneau", 1296, 280, 1.4);
+    const src = frag(L, "piece-passage", 300, 760, 1.0);
+    const srcRef = frag(L, "piece-reference", 300, 726, 1.3, "nu");
+    const exp = frag(L, "redac-export", 160, 760, 1.55);
+    paras.mark([412, 218, 514, 240], n14.start + 0.8, n15.start + 0.2);
+    src.mark([403, 3, 562, 33], n14.start + 2.0, n15.start + 0.2);
+    panel.mark([14, 236, 340, 308], n15.start + 0.3, n16.start - 0.1);
+    panel.mark([14, 82, 252, 156], n15.start + 3.1, n16.start + 0.2);
+    exp.mark([86, 2, 362, 42], n16.start + 0.9, sc.fin - 0.1);
+    const ov = overlay(L), th = thread(ov);
+    on("c07", (t) => {
+      [head, paras, panel, src, exp].forEach((f) => f.tick(t));
+      const k = outQ(ramp(t, sc.debut + 0.1, sc.debut + 0.9));
+      head.set(k, 0, lerp(-20, 0, k));
+      const kp = outQ(ramp(t, sc.debut + 0.3, sc.debut + 1.3));
+      paras.set(kp, 0, lerp(30, 0, kp));
+      // le fait cité → sa pièce
+      const ks = outQ(ramp(t, n14.start + 1.2, n14.start + 2.0)) * (1 - io(ramp(t, n15.start, n15.start + 0.5)));
+      src.set(ks, 0, lerp(30, 0, ks)); srcRef.set(ks);
+      th(paras.pt(463, 240), src.pt(482, 3), ramp(t, n14.start + 1.3, n14.start + 2.3) , 1 - io(ramp(t, n15.start, n15.start + 0.5)), 0.5);
+      const kpa = outQ(ramp(t, n15.start - 0.2, n15.start + 0.6));
+      panel.set(kpa, lerp(60, 0, kpa), 0);
+      const ke = outQ(ramp(t, n16.start + 0.2, n16.start + 1.0));
+      exp.set(ke, 0, lerp(30, 0, ke));
+      show(ment, env(t, sc.debut + 0.3, sc.fin + 0.4, 0.5, 0.4));
+    });
+  }
+
+  // ══ C07b · Montage : un seul espace de travail ══
+  {
+    const L = layers.c07b, sc = S("c07b");
+    const shots = ["00-pupitre", "01-dossier-vide-import", "02-chronologie", "03-piece-passage", "04-arguments", "05-redaction"];
+    const dims = { "05-redaction": [1920, 1080] };
+    const wins = shots.map((s) => {
+      const [iw, ih] = dims[s] || [1440, 900];
+      const w = el("div", "win", L);
+      Object.assign(w.style, { left: "330px", top: "150px", width: "1260px", height: "760px" });
+      const img = el("img", "", w); img.src = `assets/captures/${s}.png`;
+      const z = Math.max(1260 / iw, 760 / ih);
+      img.style.transform = `scale(${z})`;
+      return w;
+    });
+    const titre = enonce(L, "Un seul espace<br>de <em>travail.</em>", 160, 380, 76);
+    const fl = el("div", "flash", L);
+    on("c07b", (t) => {
+      const n = shots.length, d = (sc.fin - sc.debut - 1.6) / n;
+      wins.forEach((w, i) => {
+        const a = sc.debut + 0.2 + i * d;
+        const o = Math.min(ramp(t, a, a + 0.12), 1 - ramp(t, a + d, a + d + 0.12));
+        const k = ramp(t, a, a + d);
+        show(w, o * (t < sc.fin - 1.3 ? 1 : 0), lerp(30, -30, k), 0, lerp(1.02, 0.98, k), `perspective(1800px) rotateY(${lerp(-10, -6, k).toFixed(2)}deg)`);
+      });
+      show(fl, 0.5 * Math.max(0, 1 - Math.abs(t - (sc.fin - 1.3)) * 8));
+      show(titre, env(t, sc.fin - 1.25, sc.fin + 0.3, 0.3, 0.3));
+    });
+  }
+
+  // ══ C08 · Confidentialité ══
+  {
+    const L = layers.c08, n17 = R("n17"), n18 = R("n18"), n19 = R("n19"), n20 = R("n20"), sc = S("c08");
+    chap(L, "07", "Confidentialité");
+    const ov = overlay(L);
+    // le poste : cercle du sceau ; les sorties s'arrêtent à sa limite
+    const cx = 520, cy = 560, r = 230;
+    const ring = svgEl("circle", { cx, cy, r, fill: "none", stroke: "#5b8fe0", "stroke-width": 2.5 }, ov);
+    const ringL = 2 * Math.PI * r;
+    ring.setAttribute("stroke-dasharray", `${ringL} ${ringL}`);
+    const lab = el("div", "legende", L, "<b>Votre poste</b><br>pièces, index, moteur local"); pos(lab, cx - 120, cy - 34);
+    lab.style.textAlign = "center"; lab.style.width = "240px";
+    const rays = [-50, -15, 20, 55].map((a) => {
+      const rad = (a * Math.PI) / 180;
+      const line = svgEl("line", { stroke: "#cfc9bd", "stroke-width": 1.6, "stroke-dasharray": "6 6" }, ov);
+      const x = svgEl("text", { fill: "#e06a32", "font-family": "Onest", "font-size": 30, "font-weight": 600, "text-anchor": "middle" }, ov);
+      x.textContent = "✕";
+      return { rad, line, x };
+    });
+    const v1 = enonce(L, "Vos dossiers restent<br><em>sur votre poste.</em>", 160, 150, 56);
+    const ind = frag(L, "reseau-indicateur", 1000, 250, 2.0);
+    const etat = frag(L, "reseau-etat", 1000, 360, 0.98);
+    ind.mark([4, 4, 204, 32], n18.start + 2.4, n19.start + 0.2);
+    etat.mark([2, 324, 800, 356], n19.start + 0.3, sc.fin - 0.1, true);
+    const note = el("div", "legende", L, "Mode en cours de validation, pas encore dans la version distribuée.<br>Essai du 9 octobre 2026, environnement de test : 2 connexions de télémétrie<br>d'une dépendance refusées. Limites connues : processus enfants, UDP ;<br>le pare-feu du système reste la seconde barrière.");
+    pos(note, 1000, 790); note.style.fontSize = "15px";
+    on("c08", (t) => {
+      [ind, etat].forEach((f) => f.tick(t));
+      ring.setAttribute("stroke-dashoffset", (ringL * (1 - io(ramp(t, sc.debut + 0.2, n17.start + 1.4)))).toFixed(1));
+      show(lab, out(ramp(t, n17.start + 0.4, n17.start + 1.2)));
+      show(v1, env(t, n17.start - 0.2, sc.fin, 0.6, 0.4), 0, lerp(16, 0, out(ramp(t, n17.start - 0.2, n17.start + 0.8))));
+      rays.forEach((ry, i) => {
+        const a0 = n18.start + 0.6 + i * 0.5;
+        const k = io(clamp((t - a0) / 0.9));
+        const x0 = cx + Math.cos(ry.rad) * 70, y0 = cy + Math.sin(ry.rad) * 70;
+        const xe = cx + Math.cos(ry.rad) * r, ye = cy + Math.sin(ry.rad) * r;
+        ry.line.setAttribute("x1", x0); ry.line.setAttribute("y1", y0);
+        ry.line.setAttribute("x2", lerp(x0, xe, k)); ry.line.setAttribute("y2", lerp(y0, ye, k));
+        ry.line.style.opacity = t > a0 ? 1 : 0;
+        ry.x.setAttribute("x", xe + Math.cos(ry.rad) * 22); ry.x.setAttribute("y", ye + Math.sin(ry.rad) * 22 + 10);
+        ry.x.style.opacity = out(ramp(t, a0 + 0.85, a0 + 1.1));
+      });
+      const ki = outQ(ramp(t, n18.start + 2.0, n18.start + 2.8));
+      ind.set(ki, lerp(30, 0, ki), 0);
+      const ke = outQ(ramp(t, n18.start + 2.8, n18.start + 3.8));
+      etat.set(ke, lerp(30, 0, ke), 0);
+      show(note, env(t, n19.start + 0.8, sc.fin, 0.6, 0.4));
+    });
+  }
+
+  // ══ C09 · Signature ══
+  {
+    const L = layers.c09, n21 = R("n21"), n22 = R("n22"), sc = S("c09");
     const holder = el("div", "abs", L);
-    const mark = makeMark(holder, 120);
-    Object.assign(holder.style, { left: (W - mark.w) / 2 + "px", top: "250px" });
-    const persp = el("div", "abs", L);
-    Object.assign(persp.style, { left: 0, top: 0, width: W + "px", height: H + "px", perspective: "2200px" });
-    const R = { x: 800, y: 168, w: 980, h: 712 };
-    const w1 = makeWin(persp, "captures/00-pupitre.png", 1440, 900, R, {
-      cam: [[64.5, 560, 450, 0.79], [75.6, 640, 380, 0.95]],
-      focus: [{ r: [1082, 188, 1400, 430], a: 70.0, b: 75.2 }],
+    const mk = makeMark(holder, 150);
+    pos(holder, (W - mk.w) / 2, 200);
+    const words = ["Précision", "Traçabilité", "Confidentialité", "Sources affichées"].map((w) => {
+      const e = el("div", "mot", L, esc(w)); return e;
     });
-    const w2 = makeWin(persp, "captures/05-redaction.png", 1920, 1080, R, {
-      cam: [[75.0, 760, 560, 0.75], [84.8, 760, 700, 0.9]],
-      focus: [{ r: [415, 657, 1118, 720], a: 78.0, b: 84.0 }],
-    });
-    const kick = el("div", "kicker abs", L, "Capture réelle de l'application");
-    Object.assign(kick.style, { left: "140px", top: "372px" });
-    const note = el("div", "note abs", L, "Dossier fictif de recette<br>Octobre 2026");
-    Object.assign(note.style, { left: "140px", top: "560px", lineHeight: "1.7" });
-    onScene("s03", (t) => {
-      mark.set(ramp(t, 54.8, 56.4), ramp(t, 55.8, 57.0));
-      place(holder, { o: 1 - ramp(t, 63.4, 64.4), y: lerp(0, -20, ramp(t, 55, 64)) });
-      const kin = easeOut(ramp(t, 64.2, 66.0));
-      const rot = lerp(-14, -4, easeOut(ramp(t, 64.2, 84)));
-      for (const [w, a, b] of [[w1, 64.2, 75.6], [w2, 75.0, 85.0]]) {
-        const o = Math.min(ramp(t, a, a + 0.8), 1 - ramp(t, b - 0.6, b + 0.3));
-        place(w.root, { o: (w === w1 ? kin : 1) * o, x: lerp(120, 0, kin), extra: `rotateY(${rot.toFixed(2)}deg)` });
-        w.root.style.transformOrigin = "0% 50%";
-        if (o > 0) w.update(t);
-      }
-      place(kick, { o: env(t, 66.0, 84.0, 0.9, 0.7) });
-      place(note, { o: env(t, 67.0, 84.0, 0.9, 0.7) });
-    });
-  }
-
-  // ───────────────────────── S04 · Circuit fermé ─────────────────────────
-  {
-    const L = layers.s04;
-    const g = svgEl("svg", { width: 1640, height: 620, viewBox: "0 0 1640 620" });
-    Object.assign(g.style, { position: "absolute", left: "140px", top: "250px" });
-    L.appendChild(g);
-    const C = { iv: "#f3efe6", iv2: "#cfc9bd", mu: "#8d95a4", co: "#5b8fe0", ct: "#9dbbee", sig: "#e06a32" };
-    const items = [];
-    const grp = (a) => { const e = svgEl("g", {}, g); items.push({ e, a }); return e; };
-    const text = (p, x, y, s, { size = 22, fill = C.iv, font = "Onest", weight = 400, anchor = "start", ls = 0 } = {}) => {
-      const e = svgEl("text", { x, y, "font-family": font, "font-size": size, fill, "font-weight": weight, "text-anchor": anchor, "letter-spacing": ls }, p);
-      e.textContent = s;
-      return e;
-    };
-    const box = (p, x, y, w, h, title, sub, { dash = false, stroke = "rgba(243,239,230,0.3)", fill = "rgba(17,29,51,0.95)" } = {}) => {
-      svgEl("rect", { x, y, width: w, height: h, rx: 12, fill, stroke, "stroke-width": 1.4, ...(dash ? { "stroke-dasharray": "7 6" } : {}) }, p);
-      text(p, x + 20, y + 37, title, { size: 21, weight: 500 });
-      if (sub) text(p, x + 20, y + 64, sub, { size: 16, fill: C.iv2 });
-    };
-    // Votre poste
-    const gPoste = grp(87.0);
-    svgEl("rect", { x: 0, y: 30, width: 800, height: 520, rx: 22, fill: "rgba(17,29,51,0.45)", stroke: C.co, "stroke-width": 1.6 }, gPoste);
-    text(gPoste, 28, 72, "VOTRE POSTE", { size: 17, fill: C.ct, font: "JetBrains Mono", ls: 3 });
-    const gA = grp(88.4); box(gA, 50, 100, 330, 92, "Application SIGILLE", "interface et dossiers");
-    const gB = grp(89.4); box(gB, 50, 250, 330, 92, "Moteur IA local", "fonctionne sur ce poste");
-    const gC = grp(90.4); box(gC, 50, 400, 330, 92, "Pièces et base du dossier", "stockées sur ce poste");
-    const gLoop = grp(91.6);
-    svgEl("line", { x1: 215, y1: 192, x2: 215, y2: 250, stroke: C.co, "stroke-width": 1.6 }, gLoop);
-    svgEl("line", { x1: 120, y1: 192, x2: 120, y2: 400, stroke: C.co, "stroke-width": 1.6 }, gLoop);
-    const dots = [0, 1, 2].map(() => svgEl("circle", { r: 5, fill: C.ct }, gLoop));
-    // Garde des connexions sortantes
-    const gGuard = grp(93.6);
-    svgEl("circle", { cx: 640, cy: 290, r: 60, fill: "rgba(17,29,51,0.95)", stroke: C.co, "stroke-width": 2 }, gGuard);
-    svgEl("path", { d: "M640 255 L668 266 L668 292 C668 310 655 322 640 328 C625 322 612 310 612 292 L612 266 Z", fill: "none", stroke: C.iv, "stroke-width": 2.2 }, gGuard);
-    text(gGuard, 640, 384, "Garde des connexions", { size: 19, anchor: "middle", weight: 500 });
-    text(gGuard, 640, 410, "sortantes", { size: 19, anchor: "middle", weight: 500 });
-    svgEl("line", { x1: 380, y1: 146, x2: 582, y2: 272, stroke: "rgba(243,239,230,0.35)", "stroke-width": 1.4 }, gGuard);
-    const packet = svgEl("circle", { r: 6, fill: C.iv }, gGuard);
-    const cross = svgEl("text", { x: 700, y: 236, "font-family": "Onest", "font-size": 34, fill: C.sig, "font-weight": 600 }, gGuard);
-    cross.textContent = "✕";
-    // Réseau du cabinet
-    const gNet = grp(98.6);
-    svgEl("rect", { x: 840, y: 30, width: 320, height: 520, rx: 22, fill: "none", stroke: "rgba(243,239,230,0.28)", "stroke-width": 1.4, "stroke-dasharray": "7 6" }, gNet);
-    text(gNet, 864, 72, "RÉSEAU DU CABINET", { size: 17, fill: C.mu, font: "JetBrains Mono", ls: 3 });
-    box(gNet, 862, 240, 276, 100, "Services internes", "déclarés · facultatif");
-    svgEl("line", { x1: 700, y1: 290, x2: 862, y2: 290, stroke: "rgba(91,143,224,0.6)", "stroke-width": 1.4, "stroke-dasharray": "4 5" }, gNet);
-    // Limite réseau
-    const gLim = grp(100.8);
-    svgEl("line", { x1: 1200, y1: 0, x2: 1200, y2: 600, stroke: C.iv2, "stroke-width": 1.4, "stroke-dasharray": "10 8" }, gLim);
-    text(gLim, 1200, -10, "LIMITE RÉSEAU", { size: 16, fill: C.iv2, font: "JetBrains Mono", anchor: "middle", ls: 3 });
-    // Extérieur
-    const gExt = grp(102.2);
-    text(gExt, 1240, 72, "EXTÉRIEUR", { size: 17, fill: C.mu, font: "JetBrains Mono", ls: 3 });
-    [["Services d'IA en ligne", 100], ["Télémétrie, statistiques", 190], ["Journalisation externe", 280]].forEach(([s, y]) => {
-      svgEl("rect", { x: 1240, y, width: 400, height: 70, rx: 12, fill: "rgba(17,29,51,0.6)", stroke: "rgba(243,239,230,0.22)", "stroke-width": 1.2 }, gExt);
-      text(gExt, 1262, y + 43, s, { size: 20, fill: C.iv2 });
-      const x = text(gExt, 1604, y + 45, "✕", { size: 24, fill: C.sig, weight: 600, anchor: "middle" });
-    });
-    const gDep = grp(104.6);
-    svgEl("rect", { x: 1240, y: 384, width: 400, height: 166, rx: 12, fill: "none", stroke: "rgba(243,239,230,0.45)", "stroke-width": 1.4, "stroke-dasharray": "7 6" }, gDep);
-    text(gDep, 1262, 422, "Dépendance externe identifiée", { size: 15, fill: C.ct, font: "JetBrains Mono" });
-    text(gDep, 1262, 456, "Installation : application", { size: 20, weight: 500 });
-    text(gDep, 1262, 482, "et modèle d'IA local", { size: 20, weight: 500 });
-    text(gDep, 1262, 512, "Mises à jour : fenêtre ouverte", { size: 16, fill: C.iv2 });
-    text(gDep, 1262, 534, "par le cabinet, fermée en circuit fermé", { size: 16, fill: C.iv2 });
-    // Légende
-    const gLeg = grp(106.0);
-    svgEl("circle", { cx: 8, cy: 600, r: 6, fill: C.ct }, gLeg);
-    text(gLeg, 24, 607, "Traitement local", { size: 18, fill: C.iv2 });
-    text(gLeg, 230, 608, "✕", { size: 20, fill: C.sig, weight: 600 });
-    text(gLeg, 256, 607, "Refusé par le garde (mode circuit fermé)", { size: 18, fill: C.iv2 });
-    svgEl("line", { x1: 690, y1: 601, x2: 730, y2: 601, stroke: C.iv2, "stroke-width": 1.4, "stroke-dasharray": "7 6" }, gLeg);
-    text(gLeg, 742, 607, "Dépendance externe ou service facultatif", { size: 18, fill: C.iv2 });
-
-    // Capture réelle : l'indicateur CLOSED CIRCUIT.
-    const win = makeWin(L, "captures/06-reseau-closed-circuit.png", 1440, 790, { x: 140, y: 214, w: 1040, h: 686 }, {
-      cam: [[113.0, 720, 395, 0.87], [117.0, 860, 300, 1.12], [121.4, 900, 470, 1.08], [126.4, 940, 600, 1.12], [135.6, 950, 610, 1.14]],
-      focus: [
-        { r: [562, 284, 872, 318], a: 114.6, b: 120.6 },
-        { r: [1108, 18, 1304, 46], a: 115.6, b: 120.6 },
-        { r: [578, 400, 1366, 596], a: 121.4, b: 126.0 },
-        { r: [560, 608, 1354, 634], a: 126.4, b: 135.4, signal: true },
-      ],
-    });
-    const ann = [
-      { k: "« CLOSED CIRCUIT » : circuit fermé", s: "Indicateur affiché par l'application, dans la barre du haut et la page Réseau.", a: 114.6 },
-      { k: "Mode en cours de validation", s: "Pas encore inclus dans la version distribuée.", a: 119.0 },
-      { k: "Constaté le 9 octobre 2026", s: "Environnement de test : 2 connexions de télémétrie d'une dépendance (Next.js) refusées.", a: 126.4, signal: true },
-      { k: "Limites connues", s: "Processus enfants et UDP non couverts. Le pare-feu du système reste la seconde barrière.", a: 129.6 },
-    ].map((n, i) => {
-      const d = el("div", "annot" + (n.signal ? " signal" : ""), L, `<b class="k">${esc(n.k)}</b>${esc(n.s)}`);
-      Object.assign(d.style, { left: "1240px", top: 230 + i * 166 + "px", width: "540px", fontSize: "20px" });
-      return { ...n, d };
-    });
-    onScene("s04", (t) => {
-      const outD = 1 - ramp(t, 111.8, 113.2);
-      g.style.opacity = outD.toFixed(3);
-      g.style.visibility = outD > 0 ? "visible" : "hidden";
-      for (const it of items) it.e.style.opacity = (easeOut(ramp(t, it.a, it.a + 0.9))).toFixed(3);
-      // Boucle locale : des points circulent entre l'application, le moteur et les pièces.
-      dots.forEach((d, i) => {
-        const ph = ((t * 0.55 + i / 3) % 1);
-        const [x, y] = i === 2 ? [120, lerp(192, 400, ph)] : [215, lerp(192, 250, (ph * 2) % 1)];
-        d.setAttribute("cx", x); d.setAttribute("cy", y);
-        d.style.opacity = Math.sin(ph * Math.PI).toFixed(3);
+    const xs = [375, 765, 1155, 1545];   // centrés sur 960
+    // répartition calée sur la diction de n21 (4 groupes, durées proportionnelles aux mots)
+    const parts = [1, 1.25, 1.45, 2.2], tot = parts.reduce((a, b) => a + b, 0);
+    const human = enonce(L, "L'humain <em>décide.</em>", 0, 640, 92, { w: W, align: "center" });
+    on("c09", (t) => {
+      mk.set(1, 1);
+      show(holder, env(t, sc.debut, sc.fin, 0.5, 0.4));
+      let acc = n21.start;
+      words.forEach((e, i) => {
+        const a = acc; acc += (parts[i] / tot) * n21.duree;
+        e.style.left = xs[i] - 160 + "px"; e.style.width = "320px"; e.style.textAlign = "center"; e.style.top = "480px";
+        e.style.fontSize = "22px";
+        const k = outQ(ramp(t, a - 0.1, a + 0.5));
+        show(e, k * (1 - io(ramp(t, n22.start + 1.2, n22.start + 1.8))), 0, lerp(14, 0, k));
       });
-      // Une tentative de sortie : le paquet part, le garde le refuse.
-      const cyc = (t - 95.0) % 4.0, on = t > 95.0 && t < 111.0;
-      const kp = clamp(cyc / 1.4);
-      packet.setAttribute("cx", lerp(380, 600, easeIO(kp)).toFixed(1));
-      packet.setAttribute("cy", lerp(146, 276, easeIO(kp)).toFixed(1));
-      packet.style.opacity = on ? (cyc < 1.5 ? 1 : 0) : 0;
-      cross.style.opacity = on ? (Math.sin(clamp((cyc - 1.4) / 1.6) * Math.PI)).toFixed(3) : 0;
-
-      const ow = Math.min(ramp(t, 112.6, 113.6), 1 - ramp(t, 135.4, 136.2));
-      place(win.root, { o: ow, y: lerp(30, 0, easeOut(ramp(t, 112.6, 114))) });
-      if (ow > 0) win.update(t);
-      for (const n of ann) place(n.d, { o: env(t, n.a, 135.6, 0.8, 0.6), x: lerp(18, 0, easeOut(ramp(t, n.a, n.a + 1))) });
+      show(human, env(t, n22.start + 1.3, sc.fin + 0.3, 0.6, 0.4), 0, lerp(16, 0, out(ramp(t, n22.start + 1.3, n22.start + 2.2))));
     });
   }
 
-  // ───────────────────────── S05 · Démonstration ─────────────────────────
+  // ══ C10 · Appel à l'action ══
   {
-    const L = layers.s05;
-    const R = { x: 140, y: 150, w: 1640, h: 750 };
-    const DEMO = [
-      { src: "captures/01-dossier-vide-import.png", sw: 1440, sh: 900, a: 136.2, b: 147.7,
-        cam: [[136.2, 720, 330, 1.14], [141.0, 560, 470, 1.32], [147.7, 560, 520, 1.36]],
-        focus: [{ r: [20, 422, 1084, 655], a: 139.4, b: 147.2 }, { r: [383, 598, 722, 624], a: 142.6, b: 147.2 }] },
-      { src: "captures/02-chronologie.png", sw: 1440, sh: 900, a: 147.4, b: 157.9,
-        cam: [[147.4, 560, 250, 1.5], [152.0, 640, 300, 1.42], [157.9, 760, 420, 1.26]],
-        focus: [{ r: [48, 181, 595, 205], a: 148.4, b: 152.4 }, { r: [800, 180, 1056, 206], a: 151.6, b: 157.4, signal: true }, { r: [692, 265, 776, 292], a: 154.2, b: 157.4 }] },
-      { src: "captures/03-piece-passage.png", sw: 1440, sh: 900, a: 157.6, b: 163.7,
-        cam: [[157.6, 570, 760, 1.3], [163.7, 880, 560, 1.2]],
-        focus: [{ r: [214, 752, 932, 812], a: 158.2, b: 163.3 }, { r: [1082, 160, 1400, 472], a: 160.2, b: 163.3 }] },
-      { src: "captures/04-arguments.png", sw: 1440, sh: 900, a: 163.4, b: 173.5,
-        cam: [[163.4, 540, 300, 1.35], [168.0, 560, 420, 1.3], [173.5, 560, 560, 1.3]],
-        focus: [{ r: [18, 214, 1042, 236], a: 164.4, b: 168.4 }, { r: [40, 350, 1064, 640], a: 168.4, b: 173.0 }] },
-      { src: "captures/05-redaction.png", sw: 1920, sh: 1080, a: 173.2, b: 200.3,
-        cam: [[173.2, 960, 420, 0.9], [177.0, 770, 680, 1.25], [182.6, 780, 690, 1.25], [184.4, 1600, 340, 1.3], [189.4, 1600, 360, 1.3], [190.8, 1640, 460, 1.3], [194.6, 1640, 460, 1.3], [196.0, 1100, 230, 1.25], [200.3, 1060, 260, 1.2]],
-        focus: [{ r: [415, 657, 1118, 720], a: 175.6, b: 182.4 }, { r: [742, 692, 834, 713], a: 177.4, b: 182.4 },
-                { r: [1478, 248, 1712, 318], a: 185.0, b: 190.2 }, { r: [1478, 400, 1800, 472], a: 191.0, b: 195.4 }, { r: [964, 196, 1236, 232], a: 196.4, b: 199.8 }] },
-      { src: "captures/00-pupitre.png", sw: 1440, sh: 900, a: 200.0, b: 218.0,
-        cam: [[200.0, 600, 450, 1.3], [206.0, 760, 420, 1.2], [211.0, 900, 450, 1.16], [217.0, 700, 330, 1.14]],
-        focus: [{ r: [1082, 188, 1400, 430], a: 204.8, b: 210.8 }, { r: [1082, 462, 1400, 640], a: 211.2, b: 216.6 }] },
-    ].map((d) => ({ ...d, win: makeWin(L, d.src, d.sw, d.sh, R, { cam: d.cam, focus: d.focus }) }));
-    const cap = el("div", "note abs", L, "Captures réelles de l'application · recette d'octobre 2026 · dossier fictif");
-    Object.assign(cap.style, { right: "140px", top: "76px", textAlign: "right" });
-    onScene("s05", (t) => {
-      for (const d of DEMO) {
-        const o = Math.min(ramp(t, d.a, d.a + 0.5), 1 - ramp(t, d.b - 0.3, d.b + 0.2));
-        place(d.win.root, { o });
-        if (o > 0) d.win.update(t);
-      }
-      place(cap, { o: env(t, 137.0, 217.4, 1.0, 0.8) });
-    });
-  }
-
-  // ───────────────────────── S06 · Vision ─────────────────────────
-  {
-    const L = layers.s06;
-    const head1 = el("div", "kicker abs", L, "Testé en recette sur l'application construite · octobre 2026");
-    Object.assign(head1.style, { left: "140px", top: "236px" });
-    const head2 = el("div", "kicker abs", L, "Feuille de route · en préparation, non disponible aujourd'hui");
-    Object.assign(head2.style, { left: "140px", top: "636px", color: "var(--muted)" });
-    const SOLID = [
-      ["Import des pièces", "PDF, Word, images, courriels"], ["Chronologie", "dates contradictoires signalées"],
-      ["Provenance", "pièce, page et passage d'origine"], ["Arguments", "fondement, preuves, fragilités"],
-      ["Rédaction", "sept types d'actes, faits sourcés"], ["Export", "Word et PDF"],
-      ["Sauvegarde", "du cabinet, horodatée"], ["Licence", "vérifiée sur le poste, sans connexion"],
-    ];
-    const FUTUR = [
-      ["Fonctions IA locales", "qualité en cours de validation"], ["Circuit fermé", "mode en cours de validation"],
-      ["Mises à jour automatiques", "prévues"], ["Windows", "à valider sur un poste réel"],
-    ];
-    const cw = (1640 - 3 * 24) / 4;
-    const tiles = [];
-    SOLID.forEach(([t1, s], i) => {
-      const d = el("div", "tile", L, `<span class="ok"></span><div class="t">${esc(t1)}</div><div class="s">${esc(s)}</div>`);
-      Object.assign(d.style, { left: 140 + (i % 4) * (cw + 24) + "px", top: 282 + Math.floor(i / 4) * 164 + "px", width: cw + "px", height: "140px" });
-      tiles.push({ d, a: 219.6 + i * 0.42 });
-    });
-    FUTUR.forEach(([t1, s], i) => {
-      const d = el("div", "tile futur", L, `<span class="tag">À VENIR</span><div class="t">${esc(t1)}</div><div class="s">${esc(s)}</div>`);
-      Object.assign(d.style, { left: 140 + i * (cw + 24) + "px", top: "682px", width: cw + "px", height: "140px" });
-      tiles.push({ d, a: 233.0 + i * 0.5, futur: true });
-    });
-    onScene("s06", (t) => {
-      place(head1, { o: env(t, 219.2, 249.6, 0.8, 0.6) });
-      place(head2, { o: env(t, 232.6, 249.6, 0.8, 0.6) });
-      for (const ti of tiles) {
-        const k = easeOut(ramp(t, ti.a, ti.a + 0.9));
-        const pulse = ti.futur ? 0.75 + 0.25 * Math.sin(Math.max(0, t - 240) * 1.6) : 1;
-        place(ti.d, { o: k * (1 - ramp(t, 249.0, 250.2)) * pulse, y: lerp(24, 0, k) });
-      }
-    });
-  }
-
-  // ───────────────────────── S07 · L'offre ─────────────────────────
-  {
-    const L = layers.s07;
-    const R = { x: 800, y: 176, w: 980, h: 724 };
-    const SITE = [
-      { src: "site/home-full.png", sw: 1920, sh: 11656, a: 250.2, b: 259.6, cam: [[250.2, 960, 380, 0.62], [253.0, 960, 380, 0.62], [259.6, 960, 860, 0.62]], focus: [] },
-      { src: "site/securite.png", sw: 1920, sh: 1080, a: 259.3, b: 266.6, cam: [[259.3, 960, 520, 0.56], [266.6, 960, 560, 0.62]], focus: [] },
-      { src: "site/tarifs.png", sw: 1920, sh: 1080, a: 266.3, b: 278.0, cam: [[266.3, 960, 540, 0.56], [269.6, 760, 470, 0.74], [278.0, 760, 500, 0.74]],
-        focus: [{ r: [302, 390, 928, 418], a: 268.8, b: 277.2 }] },
-    ].map((d) => ({ ...d, win: makeWin(L, d.src, d.sw, d.sh, R, { url: "sigille.fr", cam: d.cam, focus: d.focus }) }));
-    const note = el("div", "note abs", L, "Site sigille.fr<br>même code que la version en ligne<br>(déploiement du 4 octobre 2026)");
-    Object.assign(note.style, { left: "140px", top: "640px", lineHeight: "1.7" });
-    onScene("s07", (t) => {
-      for (const d of SITE) {
-        const o = Math.min(ramp(t, d.a, d.a + 0.5), 1 - ramp(t, d.b - 0.3, d.b + 0.2));
-        place(d.win.root, { o, y: lerp(26, 0, easeOut(ramp(t, 250.0, 251.6))) });
-        if (o > 0) d.win.update(t);
-      }
-      place(note, { o: env(t, 251.4, 277.6, 0.8, 0.6) });
-    });
-  }
-
-  // ───────────────────────── S08 · Clôture ─────────────────────────
-  {
-    const L = layers.s08;
+    const L = layers.c10, n23 = R("n23"), n24 = R("n24"), n25 = R("n25"), sc = S("c10");
+    const w = el("div", "win", L);
+    Object.assign(w.style, { left: "360px", top: "120px", width: "1200px", height: "700px" });
+    el("div", "bar", w, "<i></i><i></i><i></i><span>sigille.fr</span>");
+    const img = el("img", "", w); img.src = "assets/site/home.png";
+    const z0 = 1200 / 1920;
+    const btn = el("div", "mark", w); btn.style.zIndex = 3;
     const holder = el("div", "abs", L);
-    const mark = makeMark(holder, 190);
-    Object.assign(holder.style, { left: (W - mark.w) / 2 + "px", top: "250px" });
+    const mk = makeMark(holder, 130);
+    pos(holder, (W - mk.w) / 2, 210);
+    const word = el("div", "abs", L, "SIGILLE");
+    Object.assign(word.style, { left: 0, width: W + "px", textAlign: "center", top: "372px", font: "500 36px var(--sans)", letterSpacing: ".6em", paddingLeft: ".6em" });
+    const tag = enonce(L, "Chaque fait, <em>sa pièce.</em>", 0, 438, 64, { w: W, align: "center" });
     const url = el("div", "abs", L, "sigille.fr");
-    Object.assign(url.style, { left: 0, width: W + "px", textAlign: "center", top: "748px", font: "500 30px var(--mono)", letterSpacing: "0.12em", color: "var(--cobalt-text)" });
-    const cta = el("div", "cta", L, "DÉCOUVRIR SIGILLE");
-    const ctaW = 420;
-    Object.assign(cta.style, { left: (W - ctaW) / 2 + "px", width: ctaW + "px", textAlign: "center", top: "818px" });
+    Object.assign(url.style, { left: 0, width: W + "px", textAlign: "center", top: "560px", font: "500 30px var(--mono)", letterSpacing: ".12em", color: "var(--cobalt-text)" });
+    const cta = el("div", "cta", L, "ÊTRE PRÉVENU DE L'OUVERTURE");
+    const cw = 540; Object.assign(cta.style, { left: (W - cw) / 2 + "px", width: cw + "px", textAlign: "center", top: "624px" });
     const black = el("div", "abs", stage);
-    Object.assign(black.style, { left: 0, top: 0, width: W + "px", height: H + "px", background: "#000", zIndex: 50 });
-    onScene("s08", (t) => {
-      mark.set(ramp(t, 278.2, 281.0), ramp(t, 280.4, 281.8));
-      place(holder, { o: 1 });
-      place(url, { o: easeOut(ramp(t, 287.6, 288.8)), y: lerp(10, 0, easeOut(ramp(t, 287.6, 289))) });
-      place(cta, { o: easeOut(ramp(t, 288.4, 289.6)), y: lerp(10, 0, easeOut(ramp(t, 288.4, 289.8))) });
+    Object.assign(black.style, { inset: 0, left: 0, top: 0, width: W + "px", height: H + "px", background: "#000", zIndex: 50 });
+    on("c10", (t) => {
+      // le vrai site, bouton réel « Être prévenu de l'ouverture » (home.png : 703,652 → 961,706)
+      const kw = outQ(ramp(t, sc.debut + 0.1, sc.debut + 1.0));
+      const kz = io(ramp(t, n24.start - 0.4, n24.start + 1.6));
+      const zz = lerp(z0, 0.95, kz), cx = lerp(960, 832, kz), cy = lerp(540, 600, kz);
+      const fh = 700 - 40;
+      const tx = clamp(600 - cx * zz, 1200 - 1920 * zz, 0), ty = clamp(fh / 2 - cy * zz, fh - 1080 * zz, 0);
+      img.style.transform = `translate(${tx.toFixed(1)}px, ${(ty + 40).toFixed(1)}px) scale(${zz.toFixed(4)})`;
+      const ob = env(t, n24.start + 1.0, n25.start - 0.4, 0.4, 0.3);
+      Object.assign(btn.style, { left: tx + 703 * zz - 6 + "px", top: ty + 40 + 652 * zz - 6 + "px", width: 258 * zz + 12 + "px", height: 54 * zz + 12 + "px", opacity: ob, visibility: ob > 0 ? "visible" : "hidden", borderRadius: "999px" });
+      const leave = io(ramp(t, n25.start - 0.9, n25.start - 0.1));
+      show(w, kw * (1 - leave), 0, lerp(30, 0, kw), lerp(1, 0.96, leave));
+      // carton final
+      const kf = ramp(t, n25.start - 0.3, n25.start + 1.2);
+      mk.set(kf, ramp(t, n25.start + 0.6, n25.start + 1.4));
+      show(holder, kf > 0 ? 1 : 0);
+      const kword = out(ramp(t, n25.start + 0.2, n25.start + 1.2));
+      show(word, kword); word.style.letterSpacing = lerp(0.9, 0.6, kword).toFixed(3) + "em";
+      show(tag, out(ramp(t, n25.start + 1.0, n25.start + 1.9)));
+      show(url, out(ramp(t, n25.start + 1.6, n25.start + 2.4)), 0, lerp(10, 0, out(ramp(t, n25.start + 1.6, n25.start + 2.6))));
+      show(cta, out(ramp(t, n25.start + 2.0, n25.start + 2.8)), 0, lerp(10, 0, out(ramp(t, n25.start + 2.0, n25.start + 3.0))));
     });
-    updaters.push({ id: null, fn: (t) => { black.style.opacity = Math.max(1 - ramp(t, 0, 0.6), ramp(t, 298.4, 299.9)).toFixed(3); } });
+    updaters.push({ id: null, fn: (t) => { black.style.opacity = Math.max(1 - ramp(t, 0, 0.5), ramp(t, F.total - 1.4, F.total - 0.05)).toFixed(3); } });
   }
 
-  const vig = el("div", "vignette", stage);
-  vig.style.zIndex = 40;
-
-  // ───────────────────────── boucle de rendu ─────────────────────────
+  // ── rendu ──
   function render(t) {
     for (const s of F.scenes) {
-      const o = Math.min(ramp(t, s.debut - 0.05, s.debut + 0.7), 1 - ramp(t, s.fin - 0.1, s.fin + 0.6));
       const l = layers[s.id];
+      const fin = l._extend || s.fin;
+      // fondu enchaîné court ; c04 est porté par le calque de c03
+      let o = Math.min(ramp(t, s.debut - 0.02, s.debut + 0.35), 1 - ramp(t, fin - 0.05, fin + 0.35));
+      if (s.id === "c04") o = 0;
       l.style.opacity = o.toFixed(3);
       l.style.display = o > 0 ? "block" : "none";
+      l.style.zIndex = F.scenes.indexOf(s);
     }
     for (const u of updaters) {
       if (u.id) {
-        const s = scene(u.id);
-        if (t < s.debut - 0.6 || t > s.fin + 0.8) continue;
+        const s = S(u.id), fin = layers[u.id]._extend || s.fin;
+        if (t < s.debut - 0.5 || t > fin + 0.6) continue;
       }
       u.fn(t);
     }
-    updateTexts(t);
-    updateSweep(t);
   }
 
   window.ready = (async () => {
     await document.fonts.ready;
     await Promise.all([...document.images].map((i) => (i.complete ? i.decode().catch(() => {}) : new Promise((r) => { i.onload = i.onerror = r; }))));
-    fitTexts();
     render(0);
     return true;
   })();

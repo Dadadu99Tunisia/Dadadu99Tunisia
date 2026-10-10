@@ -4,13 +4,13 @@
  *
  *   node tools/render.mjs stills 5 30 61.5 ...            → build/stills/t_XXX.png
  *   node tools/render.mjs video <debut> <fin> <sortie.mp4> → segment vidéo (25 i/s, sans perte visible)
- *   node tools/render.mjs all [workers]                     → build/video_clean.mp4 (0 → 300 s, en parallèle)
+ *   node tools/render.mjs all [workers]                     → build/video_clean.mp4 (film entier, en parallèle)
  *
  * Chaque image est une fonction pure de t : on appelle window.render(t) puis on capture.
  * Chromium : PLAYWRIGHT_BROWSERS_PATH ou CHROMIUM_PATH. Dépendance : playwright (voir README).
  */
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -18,7 +18,9 @@ import { createRequire } from "node:module";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(process.env.PLAYWRIGHT_REQUIRE_FROM || join(ROOT, "tools", "package.json"));
 const { chromium } = require("playwright");
-const FPS = 25, TOTAL = 300;
+const FPS = 25;
+// Durée du film : build/timeline.json (tools/build_timeline.py), arrondie à l'image supérieure.
+const TOTAL = Math.ceil(JSON.parse(readFileSync(join(ROOT, "build", "timeline.json"), "utf8")).total * FPS) / FPS;
 const PAGE = pathToFileURL(join(ROOT, "render", "film.html")).href;
 
 async function openPage() {
@@ -72,7 +74,7 @@ async function all(workers = 4) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   // Découpage sur des secondes entières : chaque segment contient exactement (fin-début)*25 images.
-  const step = Math.ceil(TOTAL / workers);
+  const step = Math.ceil(TOTAL / workers);   // bornes en secondes entières (sauf la dernière)
   const parts = [];
   for (let i = 0; i < workers; i++) {
     const a = i * step, b = Math.min(TOTAL, (i + 1) * step);

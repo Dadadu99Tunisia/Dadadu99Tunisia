@@ -1,56 +1,60 @@
-# SIGILLE · Film de lancement (version française)
+# SIGILLE · Film de lancement (version française, v2)
 
-Film commercial de 5 minutes, sans visage : le produit, la typographie, le mouvement et le son
-racontent l'histoire. Projet entièrement éditable : chaque image est calculée par du code à partir
-de fichiers texte, ce qui permet de mettre le film à jour quand SIGILLE évolue.
+Film produit de 2 min 23 s, sans visage : le produit, la voix off et la direction artistique portent le
+film. Signature : **« Chaque fait, sa pièce. »** Chaque image est calculée par du code à partir de
+fichiers texte ; le minutage découle de la voix réelle. La v1 (5 min, sans voix) est dans l'historique.
 
-## Livrables (`out/`)
+## Livrables (`out/`, non versionnés : dépôt public, film non publié)
 
 | Fichier | Contenu |
 |---|---|
-| `SIGILLE_film_FR_master_1080p25.mp4` | Master 1920 × 1080, 25 i/s, H.264 High CRF 16, AAC 320 kb/s, sous-titres français incrustés |
-| `SIGILLE_film_FR_sans-sous-titres_1080p25.mp4` | Même master sans sous-titres incrustés (post-production, sous-titres activables) |
-| `SIGILLE_film_FR_web.mp4` | Version web compressée (environ 45 Mo), sous-titres incrustés, démarrage rapide |
-| `SIGILLE_film_FR.srt` | Sous-titres français synchronisés avec la narration |
-| `SIGILLE_musique_lit_-24LUFS.wav` | Musique seule, au niveau de « lit » pour le mixage avec la voix |
-| `SIGILLE_voix_off_A_REMPLACER.wav` | Piste voix vide de 300 s, à remplacer par l'enregistrement |
+| `SIGILLE_film_FR_master_1080p25.mp4` | Master 1920 × 1080, 25 i/s, H.264 High CRF 16, AAC 320 kb/s, voix, sous-titres incrustés |
+| `SIGILLE_film_FR_sans-sous-titres_1080p25.mp4` | Même master sans sous-titres incrustés |
+| `SIGILLE_film_FR_web.mp4` | Version web (16 Mo), sous-titres incrustés, démarrage rapide |
+| `SIGILLE_film_FR.srt` | Sous-titres français synchronisés (versionné) |
+| `SIGILLE_voix_off_seule.wav` | Voix off seule, placée sur la timeline |
+| `SIGILLE_musique_lit_-24LUFS.wav` | Musique seule, niveau de « lit » |
 
-> **Voix off non enregistrée à ce jour.** Les outils de synthèse vocale disponibles étaient bloqués
-> (voir `docs/RAPPORT_RENDU_VALIDATION.md`). Le film est complet et diffusable en l'état avec
-> sous-titres et musique ; la voix s'ajoute sans retoucher l'image.
-
-> **Non versionnés** (dépôt public, film non publié) : les vidéos et WAV de `out/`, et les captures
-> de `render/assets/captures/`, à recopier depuis `abos-engine` (chemins dans le manifeste).
+Également non versionnés : `voix/*.wav`, `render/assets/captures/` et `render/assets/frag/` (issus du
+dépôt privé `abos-engine`, chemins dans le manifeste ; `tools/fragments.py` régénère les fragments).
 
 ## Documentation (`docs/`)
 
-- `SCRIPT_VOIX_OFF.md` : narration complète et minutée, consignes d'enregistrement.
-- `STORYBOARD.md` : découpage scène par scène, intentions, éléments à l'écran.
-- `MANIFESTE_ASSETS_LICENCES.md` : origine et droits de chaque élément.
-- `RAPPORT_RENDU_VALIDATION.md` : vérification du produit, contrôles du rendu, limites et blocages.
+- `AUDIT_REFERENCE_LEGORA.md` : comparaison avec la référence, écarts de la v1, direction de la v2.
+- `SCRIPT_VOIX_OFF.md` : narration minutée, contrôle d'intelligibilité par réplique, consignes comédien.
+- `STORYBOARD.md` : plans, direction artistique, son.
+- `MANIFESTE_ASSETS_LICENCES.md` : origine et droits de chaque élément, attribution de la voix.
+- `RAPPORT_RENDU_VALIDATION.md` : vérité produit, preuves de chaque phrase, contrôles mesurés, limites.
 
-## Ajouter la voix off
+## Refaire le film
 
-1. Enregistrer une prise par réplique, nommée selon `docs/SCRIPT_VOIX_OFF.md` : `voix/v01.wav` … `voix/v29.wav`.
-2. Lancer `bash tools/assemble.sh --render`.
+```
+python3 tools/fragments.py                         # fragments d'interface depuis les captures
+python tools/voix.py best                           # voix : 5 prises par réplique, la plus intelligible
+bash tools/assemble.sh --render                     # minutage, musique, image, mixage, encodages
+python tools/controle_mix.py out/SIGILLE_film_FR_web.mp4   # intelligibilité dans le mixage final
+```
 
-Le minutage s'aligne sur les durées réelles, les sous-titres sont régénérés, la musique s'efface
-sous la voix (compression en sidechain) et le tout est normalisé à -16 LUFS. Si une réplique
-devient trop longue pour sa scène, le script s'arrête et la signale : raccourcir le texte ou
-ajuster les bornes de la scène dans `script/narration.json`.
+`tools/voix.py` et `tools/controle_mix.py` demandent un Python avec `sherpa-onnx` et les modèles
+`vits-piper-fr_FR-siwis-medium` et `sherpa-onnx-whisper-small` (versions publiées par k2-fsa/sherpa-onnx
+sur GitHub ; dossier indiqué par `SIGILLE_TTS_DIR`). Pour une voix de comédien : déposer
+`voix/n01.wav` … `voix/n25.wav` et relancer `bash tools/assemble.sh --render`.
 
 ## Structure
 
 ```
-script/narration.json   narration (texte dit + sous-titres), scènes, minutage  ← source unique
-script/ecran.json       textes à l'écran et leurs instants
+script/narration.json   narration (texte dit + sous-titres), scènes, pauses  ← source unique
 render/film.html|css|js moteur de scènes : window.render(t) dessine l'image à l'instant t
-render/assets/          captures réelles, site, polices
+render/assets/          captures réelles, fragments, site, polices
+render/frag.js          dimensions des fragments (généré)
 tools/build_timeline.py minutage, SRT, ASS, render/data.js
 tools/render.mjs        rendu image par image (Playwright + Chromium) vers FFmpeg
 tools/music.py          bande sonore originale synthétisée
 tools/assemble.sh       chaîne complète : minutage, musique, voix, mixage, encodages
 tools/script_doc.py     génère docs/SCRIPT_VOIX_OFF.md
+tools/fragments.py      découpe les fragments d'interface
+tools/voix.py           voix off locale et contrôle par transcription
+tools/controle_mix.py   intelligibilité de la voix dans le mixage final
 tools/planche.py        planches contact pour la vérification visuelle
 ```
 
@@ -65,12 +69,11 @@ cd .. && bash tools/assemble.sh --render
 node tools/render.mjs stills 12 61.5 140   # images de contrôle dans build/stills/
 ```
 
-Rendu complet : environ 6 minutes sur 4 cœurs, puis 9 minutes d'encodage.
+Rendu complet : environ 4 minutes sur 4 cœurs, puis 5 minutes d'encodage.
 
 ## Modifier le film
 
-- Un texte dit ou un sous-titre : `script/narration.json`.
-- Un texte à l'écran : `script/ecran.json`.
-- Une capture : remplacer le fichier dans `render/assets/captures/` en gardant ses dimensions, ou
-  mettre à jour dimensions, cadrages (`cam`) et repères (`focus`) dans `render/film.js`.
+- Un texte dit : `script/narration.json`, puis `python tools/voix.py best --only nXX` et `--render`.
+- Un plan : la scène correspondante dans `render/film.js` (chaque plan est accroché à une réplique).
+- Un fragment : coordonnées dans `tools/fragments.py` ; repères en coordonnées du fragment.
 - Couleurs et polices : `render/film.css` (variables reprises du site).

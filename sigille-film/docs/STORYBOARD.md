@@ -1,74 +1,47 @@
-# SIGILLE · Storyboard et découpage
+# SIGILLE · Storyboard du film v2
 
-Durée : 5 min 00 s. Format : 1920 × 1080, 25 images par seconde. Aucun visage, aucun avatar.
-Direction artistique : fond graphite à l'encre du site (`#0b1424` vers le presque-noir), texte ivoire,
-un seul bleu (celui du symbole), un orange « signal » réservé aux contradictions et aux refus.
-Newsreader pour les énoncés, Onest pour les titres et l'interface, JetBrains Mono pour les références.
+Durée : 2 min 23 s. 1920 × 1080, 25 images par seconde. Aucun visage, aucun avatar.
+Signature : **« Chaque fait, sa pièce. »** Le minutage exact de chaque plan découle de la voix
+(`build/timeline.json`). La v1 (5 min) reste dans l'historique git.
 
-## S01 · Ouverture (0:00 → 0:20)
-- Noir. Un trait fin trace le cercle du symbole, puis ses deux lames ; le symbole se remplit de blanc.
-- Le mot SIGILLE apparaît, capitales très espacées, une ligne fine se déploie dessous.
-- Textes : « L'AVENIR DE L'INTELLIGENCE JURIDIQUE. » puis « LE CONTRÔLE AU CENTRE. »
-- Son : souffle aigu, bourdon grave, petite cloche au remplissage du symbole.
-- Intention : l'autorité en moins de dix secondes, sans animation de logo interminable.
+## Direction artistique
 
-## S02 · Le problème (0:20 → 0:55)
-- Six pièces abstraites (« PIÈCE 01 » à « PIÈCE 06 ») surgissent en profondeur.
-- Dates, références, faits et arguments s'en détachent, reliés par des fils.
-- Contradiction : « Un même événement » se relie à deux dates qui s'écartent et virent à l'orange (≠).
-  Ces deux dates reprennent celles du dossier fictif montré plus loin : continuité visuelle.
-- Textes : « DOSSIERS COMPLEXES. », « SOURCES MULTIPLES. », « INFORMATIONS CONFIDENTIELLES. »,
-  « AUCUNE PLACE POUR LA CONFIANCE AVEUGLE. »
-- Fin : tout converge vers un point lumineux au centre.
+- **Deux matières.** Le papier (`#f4f6f9`, fond du site) pour le travail dans le produit ; l'encre
+  (`#0b1424`) pour la marque, la confidentialité, la signature. L'alternance rythme le film.
+- **Le fil de preuve.** Un trait cobalt relie un fait à sa pièce (orange quand deux pièces se
+  contredisent). Il devient le cercle du symbole aux moments de marque, et la limite du poste dans la
+  scène de confidentialité. C'est la traçabilité, rendue visible, propre à SIGILLE.
+- **L'interface en gestes.** Fragments réels découpés dans les captures de recette, agrandis, un geste
+  par plan, entrée en cascade, repères bleus (orange pour les contradictions). Mention permanente :
+  « Interface réelle · dossier fictif de recette ».
+- **Typographie.** Newsreader (énoncés, italique cobalt sur l'idée forte), Onest (chapitres, interface),
+  JetBrains Mono (numéros de chapitre, mentions).
 
-## S03 · Voici SIGILLE (0:55 → 1:25)
-- Le point devient le symbole ; « Voici *SIGILLE*. » en grand.
-- Une fenêtre entre en perspective : capture réelle du Pupitre, puis des conclusions.
-- Texte : « L'INTELLIGENCE JURIDIQUE, DANS UN ENVIRONNEMENT MAÎTRISÉ. » ; mention
-  « Capture réelle de l'application · dossier fictif de recette ».
+## Plans
 
-## S04 · Le circuit fermé (1:25 → 2:16)
-- Schéma original : votre poste (application, moteur IA local, pièces et base), garde des connexions
-  sortantes, réseau du cabinet (services internes déclarés, facultatifs), limite réseau, extérieur
-  (services d'IA en ligne, télémétrie, journalisation : refusés), dépendance externe identifiée
-  (installation de l'application et du modèle, mises à jour par fenêtre ouverte par le cabinet).
-- Une tentative de sortie part et s'arrête au garde : ✕.
-- Capture réelle de la page Réseau : « CLOSED CIRCUIT: ACTIVE » (libellé anglais de l'interface,
-  traduit à l'écran : circuit fermé), les sept vérifications, puis la ligne
-  « 2 connexions sortantes refusées … telemetry.nextjs.org ».
-- Annotations : mode en cours de validation, pas encore distribué ; constat daté du 9 octobre 2026
-  en environnement de test ; limites connues (processus enfants, UDP, pare-feu en seconde barrière).
-- Textes : « MAÎTRISER LES FLUX DE DONNÉES. », « LE TRAITEMENT LOCAL, LÀ OÙ IL EST PRIS EN
-  CHARGE. », « LA SÉCURITÉ DOIT ÊTRE VÉRIFIÉE. »
+| Scène | Durée | Image | Voix |
+|---|---|---|---|
+| c00 Ouverture | 12,5 s | Deux fragments réels : la même scolarité datée du 05/01/2015 (chronologie, pièce 6) et du 9 septembre 2015 (pièce 24). Les deux dates s'encadrent d'orange, un fil les relie, « ≠ ». Puis « Une date fausse *ne se voit pas.* » | « Le même fait. Deux pièces. Deux dates. Laquelle est la bonne ? … » |
+| c01 Titre | 7,4 s | Encre. Le symbole se trace (cercle, puis lames), se remplit ; SIGILLE ; « Chaque fait, *sa pièce.* » | « Sigille. Le poste de travail juridique où chaque fait garde sa source. » |
+| c02 Importer | 13,7 s | « Ce que Sigille prépare dès l'import », zone d'import, trois cartes ; repères sur « traitement local » et « sans rien envoyer à l'extérieur » | « Vous déposez les pièces … sans les envoyer ailleurs. » |
+| c03 Comprendre | 10,6 s | Chronologie : titre « 200 événements tirés de 25 pièces · … rien n'est inventé », lignes révélées de haut en bas, repères sur les pièces sources | « Il reconstitue la chronologie … Rien n'est inventé. » |
+| c04 Vérifier | 9,9 s | Même plan (continuité) : « 175 dates contradictoires à vérifier », colonne « Date contradictoire » en orange, liens « Autre date dans … pièces » | « Quand les pièces se contredisent, Sigille ne choisit pas à votre place. Il vous le signale, pièce par pièce. » |
+| c05 Source | 8,0 s | La pièce 24 ouverte, passage exact encadré ; panneau « Passage actif » ; le fil relie le panneau au passage | « Un clic, et vous êtes dans la pièce : la page, le passage exact. » |
+| c06 Argumenter | 9,5 s | Tableau de couverture des arguments ; colonne « Fragilité » ; repère sur « Aucune source juridique n'est inventée. » (texte de l'interface) | « Les arguments partent du dossier, avec leurs points faibles. Aucune source juridique n'est inventée. » |
+| c07 Rédiger | 16,8 s | Conclusions ; le badge « Pièce n°24 · p. 1 » est relié par le fil au passage de la pièce 24 ; panneau « Expérimental · à relire avant de remplacer », « À vérifier / Confirmer ce fait » ; barre d'export Word et PDF | « Dans vos conclusions, chaque fait renvoie à sa pièce. Les propositions de l'IA restent à relire. La décision vous appartient. Puis vous exportez, en Word ou en PDF. » |
+| c07b Montage | 7,0 s | Six écrans réels en coupes rapides sur la musique, puis « Un seul espace *de travail.* » | (musique seule) |
+| c08 Confidentialité | 20,7 s | Encre. Le cercle du sceau devient la limite du poste ; quatre sorties s'arrêtent à la limite (✕). Indicateur réel « CLOSED CIRCUIT: ACTIVE », page Réseau, ligne des 2 refus ; mention : mode en validation, non distribué, essai du 9 octobre 2026 en environnement de test, limites connues | « Vos dossiers restent sur votre poste. Un mode circuit fermé, en cours de validation, … limites comprises. » |
+| c09 Signature | 11,4 s | Symbole ; PRÉCISION · TRAÇABILITÉ · CONFIDENTIALITÉ · SOURCES AFFICHÉES, un mot par temps ; « L'humain *décide.* » | « Précision. Traçabilité. Confidentialité. Des sources toujours affichées. Et une règle qui ne change pas : l'humain décide. » |
+| c10 Appel à l'action | 16,0 s | Le vrai site sigille.fr ; zoom sur le vrai bouton « Être prévenu de l'ouverture » ; carton final : symbole, SIGILLE, « Chaque fait, *sa pièce.* », sigille.fr, ÊTRE PRÉVENU DE L'OUVERTURE | « La souscription ouvre prochainement. Laissez votre adresse sur sigille.fr pour être prévenu de l'ouverture. Sigille. Chaque fait, sa pièce. » |
 
-## S05 · Démonstration (2:16 → 3:38)
-Captures réelles, dossier fictif, repères bleus sobres (orange pour les contradictions).
-1. **Importer les pièces** : dossier vide, zone d'import, « Les pièces restent dans le cabinet · traitement local ».
-2. **Une chronologie tirée des pièces** : « 200 événements tirés de 25 pièces … rien n'est inventé »,
-   « 175 dates contradictoires à vérifier », renvoi « Pièce 6 ».
-3. **Retour à la pièce, à la page, au passage** : passage surligné dans la pièce, panneau « Passage actif ».
-4. **Des arguments nés du dossier** : « Aucune source juridique n'est inventée », tableau de couverture.
-5. **Une rédaction sourcée, relue par vous** : paragraphe relié à « Pièce n°6 · p. 1 », « À vérifier »,
-   « Confirmer ce fait », mention « Expérimental » des propositions IA, exports Word et PDF.
-6. **Retour à l'espace du dossier** : Pupitre, « Ce que Sigille comprend », « À vérifier ».
+## Son
 
-## S06 · La vision (3:38 → 4:10)
-- Huit tuiles pleines : « Testé en recette sur l'application construite · octobre 2026 ».
-- Quatre tuiles en pointillé, étiquetées « À VENIR » : « Feuille de route · en préparation, non
-  disponible aujourd'hui » (fonctions IA locales, circuit fermé, mises à jour automatiques, Windows).
-- Textes : « UN PARCOURS COHÉRENT. », « CONÇU POUR LES EXIGENCES DU MÉTIER. », « PENSÉ POUR ÉVOLUER. »
+Bande originale synthétisée (`tools/music.py`) : horloge feutrée et accord dissonant au « ≠ » ;
+cloches et impact grave au sceau ; pulsation à 96 battements par minute et arpèges qui montent pendant le
+travail ; montage à pleine énergie ; confidentialité dépouillée, quatre impulsions qui s'arrêtent net ;
+un accord par mot de la signature ; accord final. La musique s'efface sous la voix (sidechain).
 
-## S07 · L'offre (4:10 → 4:38)
-- Navigateur « sigille.fr » : accueil, sécurité, tarifs ; repère sur « La souscription en ligne ouvre
-  prochainement. Voici les offres prévues. »
-- Textes : « DÉCOUVRIR SIGILLE. », « EXPLORER LE PRODUIT. », « TROUVER LA FORMULE ADAPTÉE À VOTRE CABINET. »
+## Appel à l'action
 
-## S08 · Clôture (4:38 → 5:00)
-- Symbole tracé puis rempli ; « L'intelligence juridique, conçue autour du contrôle. »
-- `sigille.fr` et un seul appel à l'action : **DÉCOUVRIR SIGILLE**.
-- Accord final, fondu au noir. Pas de générique.
-
-### Pourquoi « DÉCOUVRIR SIGILLE » et pas « S'ABONNER »
-Le paiement en ligne est volontairement fermé (`PRODUCTION_CHECKOUT_STATUS.md` : « CHECKOUT LIVE
-ALLOWED: NO » ; verrou `COMMERCIAL_ACCESS_IMPLEMENTED = false` sur le site en ligne). Le site
-annonce : « La souscription en ligne ouvre prochainement ». La voix le dit telle quelle.
+« Être prévenu de l'ouverture » : c'est le parcours principal réel du site (formulaire `/essai`), la
+souscription en ligne n'étant pas ouverte (verrou de paiement actif en production).

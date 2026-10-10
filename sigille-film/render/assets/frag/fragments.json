@@ -1,0 +1,321 @@
+{
+ "chrono-ligne1": {
+  "src": "02-chronologie.png",
+  "box": [
+   52,
+   250,
+   1052,
+   352
+  ],
+  "w": 1000,
+  "h": 102
+ },
+ "chrono-evenement1": {
+  "src": "02-chronologie.png",
+  "box": [
+   126,
+   262,
+   785,
+   343
+  ],
+  "w": 659,
+  "h": 81
+ },
+ "chrono-titre": {
+  "src": "02-chronologie.png",
+  "box": [
+   50,
+   140,
+   600,
+   206
+  ],
+  "w": 550,
+  "h": 66
+ },
+ "chrono-alerte": {
+  "src": "02-chronologie.png",
+  "box": [
+   798,
+   178,
+   1060,
+   208
+  ],
+  "w": 262,
+  "h": 30
+ },
+ "chrono-lignes": {
+  "src": "02-chronologie.png",
+  "box": [
+   50,
+   216,
+   1052,
+   706
+  ],
+  "w": 1002,
+  "h": 490
+ },
+ "chrono-contexte": {
+  "src": "02-chronologie.png",
+  "box": [
+   1100,
+   115,
+   1420,
+   412
+  ],
+  "w": 320,
+  "h": 297
+ },
+ "piece-passage": {
+  "src": "03-piece-passage.png",
+  "box": [
+   205,
+   748,
+   942,
+   816
+  ],
+  "w": 737,
+  "h": 68
+ },
+ "piece-reference": {
+  "src": "03-piece-passage.png",
+  "box": [
+   104,
+   98,
+   266,
+   120
+  ],
+  "w": 162,
+  "h": 22
+ },
+ "piece-entete": {
+  "src": "03-piece-passage.png",
+  "box": [
+   100,
+   96,
+   940,
+   232
+  ],
+  "w": 840,
+  "h": 136
+ },
+ "piece-panneau": {
+  "src": "03-piece-passage.png",
+  "box": [
+   1078,
+   155,
+   1404,
+   476
+  ],
+  "w": 326,
+  "h": 321
+ },
+ "piece-texte": {
+  "src": "03-piece-passage.png",
+  "box": [
+   110,
+   380,
+   1044,
+   900
+  ],
+  "w": 934,
+  "h": 520
+ },
+ "piece-actions": {
+  "src": "03-piece-passage.png",
+  "box": [
+   108,
+   284,
+   876,
+   324
+  ],
+  "w": 768,
+  "h": 40
+ },
+ "import-entete": {
+  "src": "01-dossier-vide-import.png",
+  "box": [
+   14,
+   112,
+   580,
+   196
+  ],
+  "w": 566,
+  "h": 84
+ },
+ "import-carte1": {
+  "src": "01-dossier-vide-import.png",
+  "box": [
+   20,
+   212,
+   367,
+   358
+  ],
+  "w": 347,
+  "h": 146
+ },
+ "import-carte2": {
+  "src": "01-dossier-vide-import.png",
+  "box": [
+   379,
+   212,
+   725,
+   358
+  ],
+  "w": 346,
+  "h": 146
+ },
+ "import-carte3": {
+  "src": "01-dossier-vide-import.png",
+  "box": [
+   737,
+   212,
+   1084,
+   358
+  ],
+  "w": 347,
+  "h": 146
+ },
+ "import-zone": {
+  "src": "01-dossier-vide-import.png",
+  "box": [
+   20,
+   422,
+   1084,
+   656
+  ],
+  "w": 1064,
+  "h": 234
+ },
+ "args-titre": {
+  "src": "04-arguments.png",
+  "box": [
+   18,
+   118,
+   700,
+   182
+  ],
+  "w": 682,
+  "h": 64
+ },
+ "args-note": {
+  "src": "04-arguments.png",
+  "box": [
+   18,
+   212,
+   1044,
+   238
+  ],
+  "w": 1026,
+  "h": 26
+ },
+ "args-table": {
+  "src": "04-arguments.png",
+  "box": [
+   20,
+   270,
+   1084,
+   832
+  ],
+  "w": 1064,
+  "h": 562
+ },
+ "redac-entete": {
+  "src": "05-redaction.png",
+  "box": [
+   96,
+   80,
+   800,
+   186
+  ],
+  "w": 704,
+  "h": 106
+ },
+ "redac-page": {
+  "src": "05-redaction.png",
+  "box": [
+   400,
+   300,
+   1140,
+   582
+  ],
+  "w": 740,
+  "h": 282
+ },
+ "redac-paragraphes": {
+  "src": "05-redaction.png",
+  "box": [
+   410,
+   600,
+   1130,
+   852
+  ],
+  "w": 720,
+  "h": 252
+ },
+ "redac-paragraphe1": {
+  "src": "05-redaction.png",
+  "box": [
+   410,
+   650,
+   1124,
+   726
+  ],
+  "w": 714,
+  "h": 76
+ },
+ "redac-panneau": {
+  "src": "05-redaction.png",
+  "box": [
+   1462,
+   165,
+   1818,
+   482
+  ],
+  "w": 356,
+  "h": 317
+ },
+ "redac-export": {
+  "src": "05-redaction.png",
+  "box": [
+   876,
+   192,
+   1438,
+   236
+  ],
+  "w": 562,
+  "h": 44
+ },
+ "reseau-etat": {
+  "src": "06-reseau-closed-circuit.png",
+  "box": [
+   556,
+   280,
+   1372,
+   642
+  ],
+  "w": 816,
+  "h": 362
+ },
+ "reseau-indicateur": {
+  "src": "06-reseau-closed-circuit.png",
+  "box": [
+   1100,
+   14,
+   1308,
+   50
+  ],
+  "w": 208,
+  "h": 36
+ },
+ "pupitre-panneau": {
+  "src": "00-pupitre.png",
+  "box": [
+   1062,
+   180,
+   1420,
+   640
+  ],
+  "w": 358,
+  "h": 460
+ }
+}

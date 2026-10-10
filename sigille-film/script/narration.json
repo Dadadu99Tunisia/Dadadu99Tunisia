@@ -1,259 +1,271 @@
 {
-  "_lisezmoi": "Source unique de la narration. 'dit' = texte prononcé (écrit pour l'oreille). 'st' = sous-titre affiché (| = retour à la ligne, || = nouveau carton ; 2 lignes maximum par carton). 'debut' = départ de la réplique en secondes, ou null pour enchaîner après la précédente. Les durées viennent des fichiers voix/<id>.wav s'ils existent, sinon d'une estimation à 13,5 caractères par seconde.",
-  "voix": "Voix française masculine ou féminine, posée, chaleureuse, accent neutre, débit modéré. Jamais la voix de la fondatrice, ni un clone.",
+  "_lisezmoi": "Version 2. Source unique de la narration. Le minutage découle des durées réelles de la voix (voix/<id>.wav) : chaque réplique commence 'pause' secondes après la fin de la précédente. Une scène commence 'avance' secondes avant sa première réplique et se termine 'apres' secondes après sa dernière. 'dit' = texte prononcé ; 'st' = sous-titre (| = retour à la ligne, || = nouveau carton, 2 lignes maximum). Une scène sans réplique dure 'duree' secondes (montage musical).",
+  "version": 2,
+  "voix": "Voix de synthèse locale fr_FR-siwis-medium (corpus SIWIS, CC BY 4.0). Remplaçable par un enregistrement : déposer voix/<id>.wav.",
+  "debut": 1.2,
+  "fin": 4.0,
   "scenes": [
     {
-      "id": "s01",
-      "titre": "Ouverture",
-      "debut": 0,
-      "fin": 20
+      "id": "c00",
+      "titre": "Ouverture : la contradiction",
+      "fond": "papier",
+      "avance": 1.2,
+      "apres": 1.4
     },
     {
-      "id": "s02",
-      "titre": "Le problème",
-      "debut": 20,
-      "fin": 55
+      "id": "c01",
+      "titre": "Titre",
+      "fond": "encre",
+      "avance": 0.6,
+      "apres": 2.6
     },
     {
-      "id": "s03",
-      "titre": "Voici SIGILLE",
-      "debut": 55,
-      "fin": 85
+      "id": "c02",
+      "titre": "Importer",
+      "fond": "papier",
+      "avance": 2.0,
+      "apres": 2.8
     },
     {
-      "id": "s04",
-      "titre": "Le circuit fermé",
-      "debut": 85,
-      "fin": 136
+      "id": "c03",
+      "titre": "Comprendre",
+      "fond": "papier",
+      "avance": 1.0,
+      "apres": 2.8
     },
     {
-      "id": "s05",
-      "titre": "Démonstration",
-      "debut": 136,
-      "fin": 218
+      "id": "c04",
+      "titre": "Vérifier",
+      "fond": "papier",
+      "avance": 0.8,
+      "apres": 2.6
     },
     {
-      "id": "s06",
-      "titre": "La vision",
-      "debut": 218,
-      "fin": 250
+      "id": "c05",
+      "titre": "Remonter à la source",
+      "fond": "papier",
+      "avance": 1.0,
+      "apres": 3.0
     },
     {
-      "id": "s07",
-      "titre": "L'offre",
-      "debut": 250,
-      "fin": 278
+      "id": "c06",
+      "titre": "Argumenter",
+      "fond": "papier",
+      "avance": 1.0,
+      "apres": 2.4
     },
     {
-      "id": "s08",
-      "titre": "Clôture",
-      "debut": 278,
-      "fin": 300
+      "id": "c07",
+      "titre": "Rédiger, relire, exporter",
+      "fond": "papier",
+      "avance": 1.0,
+      "apres": 3.0
+    },
+    {
+      "id": "c07b",
+      "titre": "Montage : un seul espace de travail",
+      "fond": "encre",
+      "avance": 0,
+      "apres": 0,
+      "duree": 7.0
+    },
+    {
+      "id": "c08",
+      "titre": "Confidentialité",
+      "fond": "encre",
+      "avance": 1.6,
+      "apres": 2.2
+    },
+    {
+      "id": "c09",
+      "titre": "Signature",
+      "fond": "encre",
+      "avance": 1.0,
+      "apres": 1.8
+    },
+    {
+      "id": "c10",
+      "titre": "Appel à l'action",
+      "fond": "encre",
+      "avance": 1.0,
+      "apres": 0
     }
   ],
   "repliques": [
     {
-      "id": "v01",
-      "scene": "s01",
-      "debut": 5.2,
-      "dit": "Dans le travail juridique, l'intelligence ne suffit pas.",
-      "st": "Dans le travail juridique,|l'intelligence ne suffit pas."
+      "id": "n01",
+      "scene": "c00",
+      "pause": 0,
+      "dit": "Le même fait. Deux pièces. Deux dates.",
+      "st": "Le même fait. Deux pièces. Deux dates."
     },
     {
-      "id": "v02",
-      "scene": "s01",
-      "debut": null,
-      "dit": "La manière dont on traite l'information compte tout autant.",
-      "st": "La manière dont on traite l'information|compte tout autant."
+      "id": "n02",
+      "scene": "c00",
+      "pause": 0.7,
+      "dit": "Laquelle est la bonne ?",
+      "st": "Laquelle est la bonne ?"
     },
     {
-      "id": "v03",
-      "scene": "s02",
-      "debut": 22.0,
-      "dit": "Un dossier n'est pas une simple pile de documents.",
-      "st": "Un dossier n'est pas|une simple pile de documents."
+      "id": "n03",
+      "scene": "c00",
+      "pause": 1.0,
+      "dit": "Dans un dossier, une date fausse ne se voit pas. Jusqu'au jour où elle compte.",
+      "st": "Dans un dossier, une date fausse ne se voit pas.|Jusqu'au jour où elle compte."
     },
     {
-      "id": "v04",
-      "scene": "s02",
-      "debut": null,
-      "dit": "C'est un réseau de faits, de pièces, d'arguments et de responsabilités.",
-      "st": "C'est un réseau de faits, de pièces,|d'arguments et de responsabilités."
+      "id": "n04",
+      "scene": "c01",
+      "pause": 0,
+      "dit": "Sigille. Le poste de travail juridique où chaque fait garde sa source.",
+      "st": "SIGILLE. Le poste de travail juridique|où chaque fait garde sa source."
     },
     {
-      "id": "v05",
-      "scene": "s02",
-      "debut": null,
-      "dit": "Une même date peut changer d'une pièce à l'autre. Une source peut manquer.",
-      "st": "Une même date peut changer d'une pièce à l'autre.|Une source peut manquer."
+      "id": "n05",
+      "scene": "c02",
+      "pause": 0,
+      "dit": "Vous déposez les pièces du dossier : PDF, documents Word, images, courriels.",
+      "st": "Vous déposez les pièces du dossier :|PDF, documents Word, images, courriels."
     },
     {
-      "id": "v06",
-      "scene": "s02",
-      "debut": null,
-      "dit": "Chaque conclusion doit être examinée. Chaque source compte.",
-      "st": "Chaque conclusion doit être examinée.|Chaque source compte."
+      "id": "n06",
+      "scene": "c02",
+      "pause": 0.5,
+      "dit": "Sigille les lit sur votre poste, sans les envoyer ailleurs.",
+      "st": "SIGILLE les lit sur votre poste,|sans les envoyer ailleurs."
     },
     {
-      "id": "v07",
-      "scene": "s03",
-      "debut": 57.0,
-      "dit": "Voici Sigille.",
-      "st": "Voici SIGILLE."
+      "id": "n07",
+      "scene": "c03",
+      "pause": 0,
+      "dit": "Il reconstitue la chronologie du dossier.",
+      "st": "Il reconstitue la chronologie du dossier."
     },
     {
-      "id": "v08",
-      "scene": "s03",
-      "debut": null,
-      "dit": "Sigille est conçu pour faire entrer l'intelligence artificielle dans le travail du cabinet, avec une priorité claire :",
-      "st": "SIGILLE est conçu pour faire entrer l'intelligence artificielle|dans le travail du cabinet, avec une priorité claire :"
+      "id": "n08",
+      "scene": "c03",
+      "pause": 0.5,
+      "dit": "Chaque événement est rattaché à la pièce dont il vient. Rien n'est inventé.",
+      "st": "Chaque événement est rattaché à la pièce dont il vient.|Rien n'est inventé."
     },
     {
-      "id": "v09",
-      "scene": "s03",
-      "debut": null,
-      "dit": "être utile, rester sous votre contrôle, et partir des réalités de la pratique juridique.",
-      "st": "être utile, rester sous votre contrôle,|et partir des réalités de la pratique juridique."
+      "id": "n09",
+      "scene": "c04",
+      "pause": 0,
+      "dit": "Quand les pièces se contredisent, Sigille ne choisit pas à votre place.",
+      "st": "Quand les pièces se contredisent,|SIGILLE ne choisit pas à votre place."
     },
     {
-      "id": "v10",
-      "scene": "s04",
-      "debut": 87.0,
-      "dit": "Sigille suit une approche d'architecture orientée vers la confidentialité.",
-      "st": "SIGILLE suit une approche d'architecture|orientée vers la confidentialité."
+      "id": "n10",
+      "scene": "c04",
+      "pause": 0.5,
+      "dit": "Il vous le signale, pièce par pièce.",
+      "st": "Il vous le signale, pièce par pièce."
     },
     {
-      "id": "v11",
-      "scene": "s04",
-      "debut": null,
-      "dit": "Il s'agit de maîtriser les flux de données, et de privilégier le traitement local partout où les fonctions concernées le permettent.",
-      "st": "Il s'agit de maîtriser les flux de données,||et de privilégier le traitement local|partout où les fonctions concernées le permettent."
+      "id": "n11",
+      "scene": "c05",
+      "pause": 0,
+      "dit": "Un clic, et vous êtes dans la pièce : la page, le passage exact.",
+      "st": "Un clic, et vous êtes dans la pièce :|la page, le passage exact."
     },
     {
-      "id": "v12",
-      "scene": "s04",
-      "debut": null,
-      "dit": "Le mode « circuit fermé », en cours de validation, n'autorise que ce poste et les services internes déclarés par le cabinet.",
-      "st": "Le mode « circuit fermé », en cours de validation,||n'autorise que ce poste|et les services internes déclarés par le cabinet."
+      "id": "n12",
+      "scene": "c06",
+      "pause": 0,
+      "dit": "Les arguments partent du dossier, avec leurs points faibles.",
+      "st": "Les arguments partent du dossier,|avec leurs points faibles."
     },
     {
-      "id": "v13",
-      "scene": "s04",
-      "debut": null,
-      "dit": "Lors d'un essai, il a refusé deux connexions sortantes émises par un composant tiers. Un essai ne prouve pas tout, et nous le disons.",
-      "st": "Lors d'un essai, il a refusé deux connexions sortantes|émises par un composant tiers.||Un essai ne prouve pas tout, et nous le disons."
+      "id": "n13",
+      "scene": "c06",
+      "pause": 0.5,
+      "dit": "Aucune source juridique n'est inventée.",
+      "st": "Aucune source juridique n'est inventée."
     },
     {
-      "id": "v14",
-      "scene": "s04",
-      "debut": null,
-      "dit": "L'objectif n'est pas de vous demander de croire un slogan, mais de rendre l'architecture, et ses limites, compréhensibles.",
-      "st": "L'objectif n'est pas de vous demander de croire un slogan,||mais de rendre l'architecture,|et ses limites, compréhensibles."
+      "id": "n14",
+      "scene": "c07",
+      "pause": 0,
+      "dit": "Dans vos conclusions, chaque fait renvoie à sa pièce.",
+      "st": "Dans vos conclusions,|chaque fait renvoie à sa pièce."
     },
     {
-      "id": "v15",
-      "scene": "s05",
-      "debut": 137.5,
-      "dit": "Prenons un dossier fictif. On importe les pièces : PDF, documents Word, images, courriels. Sigille les lit sur le poste.",
-      "st": "Prenons un dossier fictif. On importe les pièces :|PDF, documents Word, images, courriels.||SIGILLE les lit sur le poste."
+      "id": "n15",
+      "scene": "c07",
+      "pause": 0.6,
+      "dit": "Les propositions de l'intelligence artificielle restent à relire. La décision vous appartient.",
+      "st": "Les propositions de l'intelligence artificielle restent à relire.||La décision vous appartient."
     },
     {
-      "id": "v16",
-      "scene": "s05",
-      "debut": null,
-      "dit": "Il en tire une chronologie, et signale ce qui mérite une vérification : ici, des dates qui se contredisent d'une pièce à l'autre.",
-      "st": "Il en tire une chronologie,|et signale ce qui mérite une vérification :||ici, des dates qui se contredisent|d'une pièce à l'autre."
+      "id": "n16",
+      "scene": "c07",
+      "pause": 0.6,
+      "dit": "Puis vous exportez, en Word ou en PDF.",
+      "st": "Puis vous exportez, en Word ou en PDF."
     },
     {
-      "id": "v17",
-      "scene": "s05",
-      "debut": null,
-      "dit": "Chaque élément renvoie à sa pièce, à sa page, et au passage exact.",
-      "st": "Chaque élément renvoie à sa pièce,|à sa page, et au passage exact."
+      "id": "n17",
+      "scene": "c08",
+      "pause": 0,
+      "dit": "Vos dossiers restent sur votre poste.",
+      "st": "Vos dossiers restent sur votre poste."
     },
     {
-      "id": "v18",
-      "scene": "s05",
-      "debut": null,
-      "dit": "Les pistes d'argumentation partent des pièces du dossier, avec leurs fragilités. Aucune source juridique n'est inventée.",
-      "st": "Les pistes d'argumentation partent des pièces du dossier,|avec leurs fragilités.||Aucune source juridique n'est inventée."
+      "id": "n18",
+      "scene": "c08",
+      "pause": 0.6,
+      "dit": "Un mode circuit fermé, en cours de validation, bloque les connexions sortantes et affiche son état.",
+      "st": "Un mode circuit fermé, en cours de validation,|bloque les connexions sortantes et affiche son état."
     },
     {
-      "id": "v19",
-      "scene": "s05",
-      "debut": null,
-      "dit": "Dans les conclusions, chaque fait reste relié à sa pièce. Ce qui doit être relu est signalé, et c'est vous qui confirmez.",
-      "st": "Dans les conclusions, chaque fait reste relié à sa pièce.||Ce qui doit être relu est signalé,|et c'est vous qui confirmez."
+      "id": "n19",
+      "scene": "c08",
+      "pause": 0.6,
+      "dit": "Lors d'un essai, il a refusé deux connexions de télémétrie venues d'un composant tiers.",
+      "st": "Lors d'un essai, il a refusé deux connexions de télémétrie|venues d'un composant tiers."
     },
     {
-      "id": "v20",
-      "scene": "s05",
-      "debut": null,
-      "dit": "La vraie question n'est pas de savoir si une intelligence artificielle peut produire une réponse convaincante.",
-      "st": "La vraie question n'est pas de savoir si une intelligence|artificielle peut produire une réponse convaincante."
+      "id": "n20",
+      "scene": "c08",
+      "pause": 0.6,
+      "dit": "Nous montrons nos essais tels qu'ils sont, limites comprises.",
+      "st": "Nous montrons nos essais tels qu'ils sont,|limites comprises."
     },
     {
-      "id": "v21",
-      "scene": "s05",
-      "debut": null,
-      "dit": "C'est de savoir si un professionnel peut examiner le résultat, en comprendre les limites, et garder la maîtrise de son travail.",
-      "st": "C'est de savoir si un professionnel peut examiner le résultat,||en comprendre les limites,|et garder la maîtrise de son travail."
+      "id": "n21",
+      "scene": "c09",
+      "pause": 0,
+      "dit": "Précision. Traçabilité. Confidentialité. Des sources toujours affichées.",
+      "st": "Précision. Traçabilité. Confidentialité.|Des sources toujours affichées."
     },
     {
-      "id": "v22",
-      "scene": "s05",
-      "debut": null,
-      "dit": "L'ambition de Sigille : rendre le travail juridique plus cohérent, en laissant le jugement professionnel là où il doit être : entre les mains du professionnel du droit.",
-      "st": "L'ambition de SIGILLE :|rendre le travail juridique plus cohérent,||en laissant le jugement professionnel là où il doit être :|entre les mains du professionnel du droit."
+      "id": "n22",
+      "scene": "c09",
+      "pause": 0.7,
+      "dit": "Et une règle qui ne change pas : l'humain décide.",
+      "st": "Et une règle qui ne change pas :|l'humain décide."
     },
     {
-      "id": "v23",
-      "scene": "s06",
-      "debut": 219.5,
-      "dit": "Sigille est une plateforme modulaire. Certaines fonctions sont déjà vérifiées, d'autres sont encore en préparation, et nous les présentons comme telles.",
-      "st": "SIGILLE est une plateforme modulaire.|Certaines fonctions sont déjà vérifiées,||d'autres sont encore en préparation,|et nous les présentons comme telles."
+      "id": "n23",
+      "scene": "c10",
+      "pause": 0,
+      "dit": "La souscription ouvre prochainement.",
+      "st": "La souscription ouvre prochainement."
     },
     {
-      "id": "v24",
-      "scene": "s06",
-      "debut": null,
-      "dit": "Notre ambition : construire un environnement d'intelligence juridique sérieux, qui progresse par une ingénierie rigoureuse, par l'usage réel, et par une exigence constante de fiabilité.",
-      "st": "Notre ambition : construire un environnement|d'intelligence juridique sérieux,||qui progresse par une ingénierie rigoureuse,|par l'usage réel, et par une exigence constante de fiabilité."
+      "id": "n24",
+      "scene": "c10",
+      "pause": 0.5,
+      "dit": "Laissez votre adresse sur sigille point f r, pour être prévenu de l'ouverture.",
+      "st": "Laissez votre adresse sur sigille.fr|pour être prévenu de l'ouverture."
     },
     {
-      "id": "v25",
-      "scene": "s07",
-      "debut": 252.0,
-      "dit": "Découvrez Sigille sur sigille point f r.",
-      "st": "Découvrez SIGILLE sur sigille.fr"
-    },
-    {
-      "id": "v26",
-      "scene": "s07",
-      "debut": null,
-      "dit": "Explorez les fonctions disponibles aujourd'hui, et voyez si notre approche répond aux besoins de votre cabinet.",
-      "st": "Explorez les fonctions disponibles aujourd'hui,|et voyez si notre approche répond aux besoins de votre cabinet."
-    },
-    {
-      "id": "v27",
-      "scene": "s07",
-      "debut": null,
-      "dit": "La souscription en ligne ouvrira prochainement.",
-      "st": "La souscription en ligne ouvrira prochainement."
-    },
-    {
-      "id": "v28",
-      "scene": "s08",
-      "debut": 279.5,
-      "dit": "L'avenir de l'intelligence juridique ne dépendra pas seulement de ce que l'intelligence artificielle sait faire, mais de la manière dont nous choisirons de l'utiliser.",
-      "st": "L'avenir de l'intelligence juridique ne dépendra pas seulement|de ce que l'intelligence artificielle sait faire,||mais de la manière dont nous choisirons de l'utiliser."
-    },
-    {
-      "id": "v29",
-      "scene": "s08",
-      "debut": null,
-      "dit": "Sigille. Une approche plus maîtrisée de l'intelligence juridique.",
-      "st": "SIGILLE. Une approche plus maîtrisée|de l'intelligence juridique."
+      "id": "n25",
+      "scene": "c10",
+      "pause": 1.3,
+      "dit": "Sigille. Chaque fait, sa pièce.",
+      "st": "SIGILLE. Chaque fait, sa pièce."
     }
   ]
 }
